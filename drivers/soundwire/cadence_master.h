@@ -27,23 +27,6 @@ struct sdw_cdns_pdi {
 };
 
 /**
- * struct sdw_cdns_port: Cadence port structure
- *
- * @num: port number
- * @assigned: port assigned
- * @ch: channel count
- * @direction: data port direction
- * @pdi: pdi for this port
- */
-struct sdw_cdns_port {
-	unsigned int num;
-	bool assigned;
-	unsigned int ch;
-	enum sdw_data_direction direction;
-	struct sdw_cdns_pdi *pdi;
-};
-
-/**
  * struct sdw_cdns_streams: Cadence stream data structure
  *
  * @num_bd: number of bidirectional streams
@@ -93,8 +76,8 @@ struct sdw_cdns_stream_config {
  * struct sdw_cdns_dma_data: Cadence DMA data
  *
  * @name: SoundWire stream name
- * @nr_ports: Number of ports
- * @port: Ports
+ * @stream: stream runtime
+ * @pdi: PDI used for this dai
  * @bus: Bus handle
  * @stream_type: Stream type
  * @link_id: Master link id
@@ -102,8 +85,7 @@ struct sdw_cdns_stream_config {
 struct sdw_cdns_dma_data {
 	char *name;
 	struct sdw_stream_runtime *stream;
-	int nr_ports;
-	struct sdw_cdns_port **port;
+	struct sdw_cdns_pdi *pdi;
 	struct sdw_bus *bus;
 	enum sdw_stream_type stream_type;
 	int link_id;
@@ -176,6 +158,9 @@ void sdw_cdns_config_stream(struct sdw_cdns *cdns, struct sdw_cdns_port *port,
 struct sdw_cdns_pdi *sdw_cdns_alloc_pdi(struct sdw_cdns *cdns,
 					struct sdw_cdns_streams *stream,
 					u32 ch, u32 dir, int dai_id);
+struct sdw_cdns_pdi *sdw_cdns_alloc_pdi(struct sdw_cdns *cdns,
+					struct sdw_cdns_streams *stream,
+					u32 ch, u32 dir);
 void sdw_cdns_config_stream(struct sdw_cdns *cdns,
 			    u32 ch, u32 dir, struct sdw_cdns_pdi *pdi);
 
