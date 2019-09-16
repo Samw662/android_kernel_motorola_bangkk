@@ -698,10 +698,17 @@ static int intel_hw_params(struct snd_pcm_substream *substream,
 	} else {
 		dma->nr_ports = sdw_cdns_get_stream(cdns, &cdns->pcm, ch, dir);
 	}
-
 	if (!dma->nr_ports) {
 		dev_err(dai->dev, "ports/resources not available\n");
 		return -EINVAL;
+	if (pcm)
+		pdi = sdw_cdns_alloc_pdi(cdns, &cdns->pcm, ch, dir, dai->id);
+	else
+		pdi = sdw_cdns_alloc_pdi(cdns, &cdns->pdm, ch, dir, dai->id);
+
+	if (!pdi) {
+		ret = -EINVAL;
+		goto error;
 	}
 
 	dma->port = kcalloc(dma->nr_ports, sizeof(*dma->port), GFP_KERNEL);
