@@ -176,6 +176,7 @@ struct net_bridge_vlan_group {
 };
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 /* bridge fdb flags */
 enum {
@@ -196,6 +197,13 @@ enum {
 };
 
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
+=======
+/* bridge fdb flags */
+enum {
+	BR_FDB_LOCAL,
+};
+
+>>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
 struct net_bridge_fdb_key {
 	mac_addr addr;
 	u16 vlan_id;
@@ -211,8 +219,13 @@ struct net_bridge_fdb_entry {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	unsigned char			is_local:1,
 					is_static:1,
+=======
+	unsigned long			flags;
+	unsigned char			is_static:1,
+>>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
 					is_sticky:1,
 =======
 	unsigned long			flags;
