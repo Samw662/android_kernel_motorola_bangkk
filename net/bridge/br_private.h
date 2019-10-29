@@ -182,11 +182,14 @@ enum {
 	BR_FDB_LOCAL,
 	BR_FDB_STATIC,
 	BR_FDB_STICKY,
+<<<<<<< HEAD
 	BR_FDB_ADDED_BY_USER,
 <<<<<<< HEAD
 	BR_FDB_ADDED_BY_EXT_LEARN,
 =======
 >>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
+=======
+>>>>>>> c2d2a39fab95... net: bridge: fdb: convert is_sticky to bitops
 };
 
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
@@ -203,10 +206,15 @@ struct net_bridge_fdb_entry {
 	struct hlist_node		fdb_node;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	unsigned char			is_local:1,
 					is_static:1,
 					is_sticky:1,
 					added_by_user:1,
+=======
+	unsigned long			flags;
+	unsigned char			added_by_user:1,
+>>>>>>> c2d2a39fab95... net: bridge: fdb: convert is_sticky to bitops
 					added_by_external_learn:1,
 =======
 	unsigned long			flags;
