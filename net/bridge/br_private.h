@@ -181,6 +181,7 @@ struct net_bridge_vlan_group {
 enum {
 	BR_FDB_LOCAL,
 	BR_FDB_STATIC,
+<<<<<<< HEAD
 	BR_FDB_STICKY,
 <<<<<<< HEAD
 	BR_FDB_ADDED_BY_USER,
@@ -190,6 +191,8 @@ enum {
 >>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 =======
 >>>>>>> c2d2a39fab95... net: bridge: fdb: convert is_sticky to bitops
+=======
+>>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
 };
 
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
@@ -207,9 +210,14 @@ struct net_bridge_fdb_entry {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	unsigned char			is_local:1,
 					is_static:1,
 					is_sticky:1,
+=======
+	unsigned long			flags;
+	unsigned char			is_sticky:1,
+>>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
 					added_by_user:1,
 =======
 	unsigned long			flags;
