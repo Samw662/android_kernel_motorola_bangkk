@@ -234,7 +234,7 @@ static void fdb_delete_local(struct net_bridge *br,
 		if (op != p && ether_addr_equal(op->dev->dev_addr, addr) &&
 		    (!vid || br_vlan_find(vg, vid))) {
 			f->dst = op;
-			f->added_by_user = 0;
+			clear_bit(BR_FDB_ADDED_BY_USER, &f->flags);
 			return;
 		}
 	}
@@ -245,7 +245,7 @@ static void fdb_delete_local(struct net_bridge *br,
 	if (p && ether_addr_equal(br->dev->dev_addr, addr) &&
 	    (!vid || (v && br_vlan_should_use(v)))) {
 		f->dst = NULL;
-		f->added_by_user = 0;
+		clear_bit(BR_FDB_ADDED_BY_USER, &f->flags);
 		return;
 	}
 
@@ -260,7 +260,12 @@ void br_fdb_find_delete_local(struct net_bridge *br,
 
 	spin_lock_bh(&br->hash_lock);
 	f = br_fdb_find(br, addr, vid);
+<<<<<<< HEAD
 	if (f && f->is_local && !f->added_by_user && f->dst == p)
+=======
+	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+	    !test_bit(BR_FDB_ADDED_BY_USER, &f->flags) && f->dst == p)
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 		fdb_delete_local(br, p, f);
 	spin_unlock_bh(&br->hash_lock);
 }
@@ -275,7 +280,12 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 	spin_lock_bh(&br->hash_lock);
 	vg = nbp_vlan_group(p);
 	hlist_for_each_entry(f, &br->fdb_list, fdb_node) {
+<<<<<<< HEAD
 		if (f->dst == p && f->is_local && !f->added_by_user) {
+=======
+		if (f->dst == p && test_bit(BR_FDB_LOCAL, &f->flags) &&
+		    !test_bit(BR_FDB_ADDED_BY_USER, &f->flags)) {
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 			/* delete old one */
 			fdb_delete_local(br, p, f);
 
@@ -316,7 +326,12 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 
 	/* If old entry was unassociated with any port, then delete it. */
 	f = br_fdb_find(br, br->dev->dev_addr, 0);
+<<<<<<< HEAD
 	if (f && f->is_local && !f->dst && !f->added_by_user)
+=======
+	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+	    !f->dst && !test_bit(BR_FDB_ADDED_BY_USER, &f->flags))
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 		fdb_delete_local(br, NULL, f);
 
 	fdb_insert(br, NULL, newaddr, 0);
@@ -331,7 +346,12 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 		if (!br_vlan_should_use(v))
 			continue;
 		f = br_fdb_find(br, br->dev->dev_addr, v->vid);
+<<<<<<< HEAD
 		if (f && f->is_local && !f->dst && !f->added_by_user)
+=======
+		if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+		    !f->dst && !test_bit(BR_FDB_ADDED_BY_USER, &f->flags))
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 			fdb_delete_local(br, NULL, f);
 		fdb_insert(br, NULL, newaddr, v->vid);
 	}
@@ -520,7 +540,11 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 			set_bit(BR_FDB_LOCAL, &fdb->flags);
 		if (is_static)
 			set_bit(BR_FDB_STATIC, &fdb->flags);
+<<<<<<< HEAD
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
+=======
+		fdb->added_by_external_learn = 0;
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 		fdb->offloaded = 0;
 		fdb->is_sticky = 0;
 		fdb->updated = fdb->used = jiffies;
@@ -613,7 +637,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 			if (now != fdb->updated)
 				fdb->updated = now;
 			if (unlikely(added_by_user))
-				fdb->added_by_user = 1;
+				set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
 			if (unlikely(fdb_modified)) {
 				trace_br_fdb_update(br, source, addr, vid, added_by_user);
 				fdb_notify(br, fdb, RTM_NEWNEIGH, true);
@@ -624,7 +648,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
 		fdb = fdb_create(br, source, addr, vid, 0, 0);
 		if (fdb) {
 			if (unlikely(added_by_user))
-				fdb->added_by_user = 1;
+				set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
 			trace_br_fdb_update(br, source, addr, vid,
 					    added_by_user);
 			fdb_notify(br, fdb, RTM_NEWNEIGH, true);
@@ -893,7 +917,7 @@ static int fdb_add_entry(struct net_bridge *br, struct net_bridge_port *source,
 		modified = true;
 	}
 
-	fdb->added_by_user = 1;
+	set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
 
 	fdb->used = jiffies;
 	if (modified) {
@@ -1152,7 +1176,11 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 		}
 		if (swdev_notify)
 <<<<<<< HEAD
+<<<<<<< HEAD
 			fdb->added_by_user = 1;
+=======
+			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
+>>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
 		fdb->added_by_external_learn = 1;
 =======
 			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
@@ -1175,7 +1203,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
 			/* Refresh entry */
 			fdb->used = jiffies;
-		} else if (!fdb->added_by_user) {
+		} else if (!test_bit(BR_FDB_ADDED_BY_USER, &fdb->flags)) {
 			/* Take over SW learned entry */
 <<<<<<< HEAD
 			fdb->added_by_external_learn = 1;
@@ -1192,7 +1220,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 		}
 
 		if (swdev_notify)
-			fdb->added_by_user = 1;
+			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
 
 		if (modified)
 			fdb_notify(br, fdb, RTM_NEWNEIGH, swdev_notify);
