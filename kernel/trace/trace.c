@@ -3334,7 +3334,7 @@ static void trace_iterator_increment(struct trace_iterator *iter)
 
 	iter->idx++;
 	if (buf_iter)
-		ring_buffer_read(buf_iter, NULL);
+		ring_buffer_iter_advance(buf_iter);
 }
 
 static struct trace_entry *
@@ -3495,12 +3495,16 @@ void tracing_iter_reset(struct trace_iterator *iter, int cpu)
 			break;
 		entries++;
 <<<<<<< HEAD
+<<<<<<< HEAD
 		ring_buffer_read(buf_iter, NULL);
 =======
 		ring_buffer_iter_advance(buf_iter);
 		/* This could be a big loop */
 		cond_resched();
 >>>>>>> 7195d0498d1c... tracing: Avoid possible softlockup in tracing_iter_reset()
+=======
+		ring_buffer_iter_advance(buf_iter);
+>>>>>>> 2feb2c351c2c... ring-buffer: Rename ring_buffer_read() to read_buffer_iter_advance()
 	}
 
 	per_cpu_ptr(iter->trace_buffer->data, cpu)->skipped_entries = entries;
