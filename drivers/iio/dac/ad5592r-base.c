@@ -379,7 +379,7 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 {
 	struct ad5592r_state *st = iio_priv(iio_dev);
 	u16 read_val;
-	int ret;
+	int ret, mult;
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
@@ -423,19 +423,21 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 		}
 
 			mutex_lock(&iio_dev->mlock);
-
-			if (chan->output)
-				mult = !!(st->cached_gp_ctrl &
-					AD5592R_REG_CTRL_DAC_RANGE);
-			else
-				mult = !!(st->cached_gp_ctrl &
-					AD5592R_REG_CTRL_ADC_RANGE);
-
-			*val *= ++mult;
-
-			*val2 = chan->scan_type.realbits;
-			ret = IIO_VAL_FRACTIONAL_LOG2;
 		}
+
+		mutex_lock(&st->lock);
+
+		if (chan->output)
+			mult = !!(st->cached_gp_ctrl &
+				AD5592R_REG_CTRL_DAC_RANGE);
+		else
+			mult = !!(st->cached_gp_ctrl &
+				AD5592R_REG_CTRL_ADC_RANGE);
+
+		*val *= ++mult;
+
+		*val2 = chan->scan_type.realbits;
+		ret = IIO_VAL_FRACTIONAL_LOG2;
 		break;
 	case IIO_CHAN_INFO_OFFSET:
 		ret = ad5592r_get_vref(st);
