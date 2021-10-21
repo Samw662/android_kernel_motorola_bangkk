@@ -130,6 +130,9 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
 =======
 	struct cx82310_priv *priv;
 	u8 addr[ETH_ALEN];
+<<<<<<< HEAD
+>>>>>>> f3c54d6e06f9... net: usb: don't write directly to netdev->dev_addr
+=======
 >>>>>>> f3c54d6e06f9... net: usb: don't write directly to netdev->dev_addr
 
 	/* avoid ADSL modems - continue only if iProduct is "USB NET CARD" */

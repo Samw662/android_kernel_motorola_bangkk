@@ -1727,11 +1727,16 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	dev->net = net;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	strcpy (net->name, "usb%d");
 	memcpy (net->dev_addr, node_id, sizeof node_id);
 =======
 	strscpy(net->name, "usb%d", sizeof(net->name));
 >>>>>>> 7d70e0b3917c... usbnet: modern method to get random MAC
+=======
+	strscpy(net->name, "usb%d", sizeof(net->name));
+	eth_hw_addr_set(net, node_id);
+>>>>>>> f3c54d6e06f9... net: usb: don't write directly to netdev->dev_addr
 =======
 	strscpy(net->name, "usb%d", sizeof(net->name));
 	eth_hw_addr_set(net, node_id);
