@@ -138,7 +138,7 @@ unsigned int storage_mfrid;
 #define UFSHCD_REF_CLK_GATING_WAIT_US 0xFF /* microsecs */
 
 /* Polling time to wait for fDeviceInit  */
-#define FDEVICEINIT_COMPL_TIMEOUT 5000 /* millisecs */
+#define FDEVICEINIT_COMPL_TIMEOUT 8000 /* millisecs */
 
 #if defined(CONFIG_SCSI_SKHID)
 /* for manual gc */
