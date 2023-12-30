@@ -192,7 +192,7 @@ struct qrtr_node {
 	struct wakeup_source *ws;
 	void *ilc;
 
-	u32 nonwake_svc[MAX_NON_WAKE_SVC_LEN];
+	struct qrtr_array no_wake_svc;
 };
 
 struct qrtr_tx_flow_waiter {
@@ -421,6 +421,7 @@ static void __qrtr_node_release(struct kref *kref)
 	kthread_stop(node->task);
 
 	skb_queue_purge(&node->rx_queue);
+	kfree(node->no_wake_svc.arr);
 	kfree(node);
 }
 
@@ -928,6 +929,7 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 	/* All control packets and non-local destined data packets should be
 	 * queued to the worker for forwarding handling.
 	 */
+	svc_id = qrtr_get_service_id(cb->src_node, cb->src_port);
 	if (cb->type != QRTR_TYPE_DATA || cb->dst_node != qrtr_local_nid) {
 		skb_queue_tail(&node->rx_queue, skb);
 		kthread_queue_work(&node->kworker, &node->read_data);
@@ -940,31 +942,27 @@ int qrtr_endpoint_post(struct qrtr_endpoint *ep, const void *data, size_t len)
 		}
 
 		if (node->nid == 5) {
-			svc_id = qrtr_get_service_id(cb->src_node, cb->src_port);
-			if (svc_id > 0) {
-				for (i = 0; i < MAX_NON_WAKE_SVC_LEN; i++) {
-					if (svc_id == node->nonwake_svc[i]) {
+			if (svc_id > 0){
+				for (i = 0; i < node->no_wake_svc.size; i++) {
+					if (svc_id == node->no_wake_svc.arr[i]) {
 						wake = false;
 						break;
 					}
 				}
 			}
 		}
-
 		if (sock_queue_rcv_skb(&ipc->sk, skb))
 			goto err;
-
 		/**
 		 * Force wakeup for all packets except for sensors and blacklisted services
 		 * from adsp side
 		 */
 		if ((node->nid != 9 && node->nid != 5) ||
-		    (node->nid == 5 && wake))
+				(node->nid == 5 && wake))
 			pm_wakeup_ws_event(node->ws, qrtr_wakeup_ms, true);
 
 		qrtr_port_put(ipc);
 	}
-
 	return 0;
 
 err:
@@ -1170,7 +1168,7 @@ static void qrtr_hello_work(struct kthread_work *work)
  * The specified endpoint must have the xmit function pointer set on call.
  */
 int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
-			   bool rt, u32 *svc_arr)
+			   bool rt, struct qrtr_array *svc_arr)
 {
 	struct qrtr_node *node;
 	struct sched_param param = {.sched_priority = 1};
@@ -1201,9 +1199,12 @@ int qrtr_endpoint_register(struct qrtr_endpoint *ep, unsigned int net_id,
 	if (rt)
 		sched_setscheduler(node->task, SCHED_FIFO, &param);
 
-	if (svc_arr)
-		memcpy(node->nonwake_svc, svc_arr, MAX_NON_WAKE_SVC_LEN * sizeof(int));
-
+	if(svc_arr && svc_arr->size) {
+		node->no_wake_svc.arr = kmalloc_array(svc_arr->size, sizeof(u32), GFP_KERNEL);
+		memcpy((void *)node->no_wake_svc.arr, (void *)svc_arr->arr,
+				svc_arr->size * sizeof(u32));
+		node->no_wake_svc.size = svc_arr->size;
+	}
 	mutex_init(&node->qrtr_tx_lock);
 	INIT_RADIX_TREE(&node->qrtr_tx_flow, GFP_KERNEL);
 	init_waitqueue_head(&node->resume_tx);
