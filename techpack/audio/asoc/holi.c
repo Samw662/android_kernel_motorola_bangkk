@@ -46,6 +46,14 @@
 #define __CHIPSET__ "HOLI "
 #define MSM_DAILINK_NAME(name) (__CHIPSET__#name)
 
+#ifdef CONFIG_SND_SOC_AW87XXX
+	extern int aw87xxx_add_codec_controls(void *codec);
+#endif
+
+#ifdef CONFIG_SND_SOC_FS1815
+	extern int fsm_add_codec_controls(struct snd_soc_component *codec);
+#endif
+
 #define SAMPLING_RATE_8KHZ      8000
 #define SAMPLING_RATE_11P025KHZ 11025
 #define SAMPLING_RATE_16KHZ     16000
@@ -576,6 +584,7 @@ static char const *bt_sample_rate_tx_text[] = {"KHZ_8", "KHZ_16",
 					"KHZ_44P1", "KHZ_48",
 					"KHZ_88P2", "KHZ_96"};
 static const char *const afe_loopback_tx_ch_text[] = {"One", "Two"};
+static const char *const earpiece_dsense_text[] = {"On", "Off"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(usb_rx_sample_rate, usb_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(usb_tx_sample_rate, usb_sample_rate_text);
@@ -710,6 +719,7 @@ static SOC_ENUM_SINGLE_EXT_DECL(bt_sample_rate, bt_sample_rate_text);
 static SOC_ENUM_SINGLE_EXT_DECL(bt_sample_rate_rx, bt_sample_rate_rx_text);
 static SOC_ENUM_SINGLE_EXT_DECL(bt_sample_rate_tx, bt_sample_rate_tx_text);
 static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
+static SOC_ENUM_SINGLE_EXT_DECL(earpiece_dsense_en, earpiece_dsense_text);
 
 static bool is_initial_boot;
 static bool codec_reg_done;
@@ -717,6 +727,8 @@ static struct snd_soc_card snd_soc_card_holi_msm;
 static int dmic_0_1_gpio_cnt;
 static int dmic_2_3_gpio_cnt;
 static int dmic_4_5_gpio_cnt;
+static int earpiece_dsense_en_gpio;
+static bool is_earpiece_dsense_disable;
 
 static void *def_wcd_mbhc_cal(void);
 
@@ -3219,6 +3231,36 @@ static int msm_bt_sample_rate_tx_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/* when gpio output is high, means earpiece dsense is off */
+static int earpiece_dsense_en_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = is_earpiece_dsense_disable;
+	pr_debug("get earpiece_dsense_pin state: %s\n",
+		 is_earpiece_dsense_disable ? "high" : "low");
+	return 0;
+}
+
+static int earpiece_dsense_en_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		gpio_direction_output(earpiece_dsense_en_gpio, 0);
+		is_earpiece_dsense_disable = 0;
+		break;
+	case 1:
+		gpio_direction_output(earpiece_dsense_en_gpio, 1);
+		is_earpiece_dsense_disable = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+	pr_debug("set earpiece_dsense_pin: %s\n",
+		 ucontrol->value.integer.value[0] ? "high" : "low");
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_int_wcd937x_snd_controls[] = {
 	SOC_ENUM_EXT("RX_CDC_DMA_RX_0 Format", rx_cdc_dma_rx_0_format,
 			cdc_dma_rx_format_get, cdc_dma_rx_format_put),
@@ -3593,6 +3635,8 @@ static const struct snd_kcontrol_new msm_common_snd_controls[] = {
 			msm_vi_feed_tx_ch_get, msm_vi_feed_tx_ch_put),
 	SOC_SINGLE_MULTI_EXT("TDM Slot Map", SND_SOC_NOPM, 0, 255, 0,
 			TDM_MAX_SLOTS + MAX_PATH, NULL, tdm_slot_map_put),
+	SOC_ENUM_EXT("Earpiece Dsense Enable", earpiece_dsense_en,
+			earpiece_dsense_en_get, earpiece_dsense_en_put),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -4758,8 +4802,8 @@ static void *def_wcd_mbhc_cal(void)
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
-	btn_high[0] = 75;
-	btn_high[1] = 150;
+	btn_high[0] = 88;
+	btn_high[1] = 138;
 	btn_high[2] = 237;
 	btn_high[3] = 500;
 	btn_high[4] = 500;
@@ -5211,6 +5255,21 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		SND_SOC_DAILINK_REG(tert_mi2s_tx_hostless),
+	},
+};
+
+static struct snd_soc_dai_link msm_sec_mi2s_tx_hotless_dai_links[] = {
+	{
+		.name = "Secondary MI2S_TX Hostless",
+		.stream_name = "Secondary MI2S_TX Hostless Capture",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+				SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		SND_SOC_DAILINK_REG(sec_mi2s_tx_hostless),
 	},
 };
 
@@ -5923,7 +5982,8 @@ static struct snd_soc_dai_link msm_holi_dai_links[
 			ARRAY_SIZE(msm_rx_tx_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(msm_va_cdc_dma_be_dai_links) +
 			ARRAY_SIZE(msm_afe_rxtx_lb_be_dai_link) +
-			ARRAY_SIZE(msm_wcn_btfm_be_dai_links)];
+			ARRAY_SIZE(msm_wcn_btfm_be_dai_links) +
+			ARRAY_SIZE(msm_sec_mi2s_tx_hotless_dai_links)];
 
 static int msm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
@@ -6166,6 +6226,42 @@ static const struct of_device_id holi_asoc_machine_of_match[]  = {
 	{},
 };
 
+#ifdef CONFIG_AW882XX_STEREO_SMARTPA
+struct snd_soc_dai_link_component aw_codecs[4];
+static unsigned int aw_codecs_num;
+
+void awinic_set_dai_name(const char* drvdainame, const char*drvname)
+{
+	if (aw_codecs_num < ARRAY_SIZE(aw_codecs)) {
+		aw_codecs[aw_codecs_num].dai_name = drvdainame;
+		aw_codecs[aw_codecs_num].name = drvname;
+		aw_codecs[aw_codecs_num].of_node = NULL;
+		aw_codecs_num++;
+	}
+}
+EXPORT_SYMBOL(awinic_set_dai_name);
+
+static int aw_update_dai_link_name(struct snd_soc_dai_link *dailink, int len1)
+{
+	int i;
+
+	if (aw_codecs_num != 0) {
+		for (i = 0; i < len1; i++) {
+			if((!strcmp(dailink[i].stream_name, "Secondary MI2S Playback")) ||
+				(!strcmp(dailink[i].stream_name, "Secondary MI2S Capture"))){
+				dailink[i].num_codecs = aw_codecs_num;
+				dailink[i].codecs = aw_codecs;
+			}
+		}
+	} else {
+		pr_err("aw_codecs is empty\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+#endif
+
+
 static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = NULL;
@@ -6272,6 +6368,14 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 					ARRAY_SIZE(msm_wcn_btfm_be_dai_links);
 			}
 		}
+
+		if (mi2s_audio_intf) {
+			memcpy(msm_holi_dai_links + total_links,
+				msm_sec_mi2s_tx_hotless_dai_links,
+				sizeof(msm_sec_mi2s_tx_hotless_dai_links));
+			total_links += ARRAY_SIZE(msm_sec_mi2s_tx_hotless_dai_links);
+		}
+
 		dailink = msm_holi_dai_links;
 	} else if (!strcmp(match->data, "stub_codec")) {
 		card = &snd_soc_card_stub_msm;
@@ -6288,6 +6392,10 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		dailink = msm_stub_dai_links;
 		total_links = len_2;
 	}
+
+#ifdef CONFIG_AW882XX_STEREO_SMARTPA
+	aw_update_dai_link_name(dailink, total_links);
+#endif
 
 	if (card) {
 		card->dai_link = dailink;
@@ -6330,6 +6438,24 @@ static int msm_int_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			__func__, ret);
 		return ret;
 	}
+
+#ifdef CONFIG_SND_SOC_AW87XXX
+	ret = aw87xxx_add_codec_controls((void *)component);
+	if (ret < 0) {
+		pr_err("%s: add_codec_controls failed, ret %d\n",
+			__func__, ret);
+		return ret;
+	};
+#endif
+
+#ifdef CONFIG_SND_SOC_FS1815
+	ret = fsm_add_codec_controls(component);
+	if (ret < 0) {
+		pr_err("%s: add_codec_controls failed, ret %d\n",
+			__func__, ret);
+		return ret;
+	};
+#endif
 
 	snd_soc_dapm_new_controls(dapm, msm_int_dapm_widgets,
 				ARRAY_SIZE(msm_int_dapm_widgets));
@@ -6818,6 +6944,19 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 					"qcom,quat-mi2s-gpios", 0);
 	for (index = PRIM_MI2S; index < MI2S_MAX; index++)
 		atomic_set(&(pdata->mi2s_gpio_ref_count[index]), 0);
+
+	earpiece_dsense_en_gpio = of_get_named_gpio(pdev->dev.of_node,
+			"earpiece-dsense-enable", 0);
+	if (earpiece_dsense_en_gpio < 0) {
+		pr_err("missing earpiece_dsense_en_gpio in dt node\n");
+	} else {
+		if (!gpio_is_valid(earpiece_dsense_en_gpio)) {
+			pr_err("Invalid earpiece_dsense_en_gpio\n");
+		} else {
+			gpio_direction_output(earpiece_dsense_en_gpio, 1);
+			is_earpiece_dsense_disable = 1;
+		}
+	}
 
 	/* Register LPASS audio hw vote */
 	lpass_audio_hw_vote = devm_clk_get(&pdev->dev, "lpass_audio_hw_vote");

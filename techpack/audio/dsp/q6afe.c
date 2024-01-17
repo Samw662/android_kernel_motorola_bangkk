@@ -24,6 +24,32 @@
 #include "adsp_err.h"
 #include "q6afecal-hwdep.h"
 
+#ifdef CONFIG_SND_SOC_FS1815
+#include <dsp/q6fsm-v3.h>
+#endif
+
+
+
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+#define AFE_MODULE_ID_AWDSP_TX			(0x10013D00)
+#define AFE_MODULE_ID_AWDSP_RX			(0x10013D01)
+#define AFE_PARAM_ID_AWDSP_RX_SET_ENABLE	(0x10013D11)
+#define AFE_PARAM_ID_AWDSP_TX_SET_ENABLE	(0x10013D13)
+#define AFE_PARAM_ID_AWDSP_RX_PARAMS            (0x10013D12)
+
+void aw_cal_unmap_memory(void);
+#endif /* #ifdef CONFIG_SND_SOC_AWINIC_AW882XX */
+
+#ifdef CONFIG_SND_SOC_AW87XXX
+static int g_rx_port_id = 0;
+
+void aw_set_port_id(int rx_port_id)
+{
+       g_rx_port_id = rx_port_id;
+}
+EXPORT_SYMBOL(aw_set_port_id);
+#endif /* #ifdef CONFIG_SND_SOC_AW87XXX */
+
 #define WAKELOCK_TIMEOUT	5000
 #define AFE_CLK_TOKEN	1024
 #define AFE_NOWAIT_TOKEN	2048
@@ -275,6 +301,10 @@ struct afe_ctl {
 	uint32_t cps_ch_mask;
 	struct afe_cps_hw_intf_cfg *cps_config;
 	int lsm_afe_ports[MAX_LSM_SESSIONS];
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+	struct rtac_cal_block_data aw_cal;
+	atomic_t aw_state;
+#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
 };
 
 struct afe_clkinfo_per_port {
@@ -596,6 +626,7 @@ int afe_get_topology(int port_id)
 done:
 	return topology;
 }
+EXPORT_SYMBOL(afe_get_topology);
 
 /**
  * afe_set_aanc_info -
@@ -1042,6 +1073,10 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		return -EINVAL;
 	}
 	if (data->opcode == RESET_EVENTS) {
+		#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+			aw_cal_unmap_memory();
+		#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
+
 		pr_debug("%s: reset event = %d %d apr[%pK]\n",
 			__func__,
 			data->reset_event, data->reset_proc, this_afe.apr);
@@ -1117,7 +1152,31 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				payload, data->token);
 			return -EINVAL;
 		}
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+		if (atomic_read(&this_afe.aw_state) == 1) {
+			if (!payload[0]) {
+				atomic_set(&this_afe.state, 0);
+			} else {
+				pr_debug("%s: status: %d", __func__, payload[0]);
+				atomic_set(&this_afe.state, -1);
+			}
+			atomic_set(&this_afe.aw_state, 0);
+			wake_up(&this_afe.wait[data->token]);
+		return 0;
+		}
+#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
 
+#ifdef CONFIG_SND_SOC_FS1815
+		if (!q6fsm_afe_callback(data->payload, data->payload_size)) {
+			atomic_set(&this_afe.state, 0);
+			if (afe_token_is_valid(data->token)) {
+				wake_up(&this_afe.wait[data->token]);
+				return 0;
+			} else {
+				return -EINVAL;
+			}
+		}
+#endif
 		if (rtac_make_afe_callback(data->payload,
 					   data->payload_size))
 			return 0;
@@ -2511,6 +2570,15 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 	case AFE_PARAM_ID_SP_V4_EX_VI_FTM_CFG:
 		param_info.module_id = AFE_MODULE_SPEAKER_PROTECTION_V4_VI;
 		break;
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+	case AFE_PARAM_ID_AWDSP_RX_SET_ENABLE:
+	case AFE_PARAM_ID_AWDSP_RX_PARAMS:
+		param_info.module_id = AFE_MODULE_ID_AWDSP_RX;
+		break;
+	case AFE_PARAM_ID_AWDSP_TX_SET_ENABLE:
+		param_info.module_id = AFE_MODULE_ID_AWDSP_TX;
+		break;
+#endif	/*CONFIG_SND_SOC_AWINIC_AW882XX*/
 	default:
 		pr_err("%s: default case 0x%x\n", __func__, param_id);
 		goto fail_cmd;
@@ -3920,6 +3988,233 @@ done:
 	return ret;
 }
 
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+int aw_send_afe_rx_module_enable(uint32_t rx_port_id, void *buf, int cmd_size)
+{
+	union afe_spkr_prot_config config;
+
+	if (cmd_size > sizeof(config))
+		return -EINVAL;
+
+	memcpy(&config, buf, cmd_size);
+
+	if (afe_spk_prot_prepare(rx_port_id, 0,
+		AFE_PARAM_ID_AWDSP_RX_SET_ENABLE, &config,sizeof(union afe_spkr_prot_config))) {
+		pr_err("%s: set bypass failed \n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(aw_send_afe_rx_module_enable);
+int aw_send_afe_tx_module_enable(uint32_t tx_port_id, void *buf, int cmd_size)
+{
+	union afe_spkr_prot_config config;
+
+	if (cmd_size > sizeof(config))
+		return -EINVAL;
+
+	memcpy(&config, buf, cmd_size);
+
+	if (afe_spk_prot_prepare(tx_port_id, 0,
+		AFE_PARAM_ID_AWDSP_TX_SET_ENABLE, &config,sizeof(union afe_spkr_prot_config))) {
+		pr_err("%s: set bypass failed \n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(aw_send_afe_tx_module_enable);
+
+#ifdef CONFIG_SND_SOC_AW87XXX
+int aw_send_afe_cal_apr(uint32_t param_id, void *buf, int cmd_size, bool write)     /*aw87xxx*/
+#else
+int aw_send_afe_cal_apr(uint32_t rx_port_id, uint32_t tx_port_id,
+						uint32_t param_id, void *buf, int cmd_size, bool write)   /*aw882xx*/
+#endif
+{
+	int32_t result = 0;
+#ifdef CONFIG_SND_SOC_AW87XXX
+	uint32_t port_id = g_rx_port_id;
+#else
+	uint32_t port_id = rx_port_id;   /*aw882xx*/
+#endif
+	int32_t  module_id = AFE_MODULE_ID_AWDSP_RX;
+	uint32_t port_index = 0;
+	uint32_t payload_size = 0;
+	size_t len;
+	struct rtac_cal_block_data *aw_cal = &(this_afe.aw_cal);
+	struct mem_mapping_hdr mem_hdr;
+	struct param_hdr_v3  param_hdr;
+
+	pr_debug("%s: enter\n", __func__);
+
+#ifndef CONFIG_SND_SOC_AW87XXX
+	if (param_id == AFE_PARAM_ID_AWDSP_TX_SET_ENABLE) {
+		port_id = tx_port_id;
+		module_id = AFE_MODULE_ID_AWDSP_TX;
+	}
+#endif
+
+	if (aw_cal->map_data.dma_buf == 0) {
+		/*Minimal chunk size is 8K*/
+#ifdef CONFIG_AW882XX_MAPSIZE_16K
+		aw_cal->map_data.map_size = SZ_16K;
+#else
+		aw_cal->map_data.map_size = SZ_8K;
+#endif
+		result = msm_audio_ion_alloc(&(aw_cal->map_data.dma_buf),
+				aw_cal->map_data.map_size,
+				&(aw_cal->cal_data.paddr),&len,
+				&(aw_cal->cal_data.kvaddr));
+		if (result < 0) {
+			pr_err("%s: allocate buffer failed! ret = %d\n",
+				__func__, result);
+			goto err;
+		}
+	}
+
+	if (aw_cal->map_data.map_handle == 0) {
+		result = afe_map_rtac_block(aw_cal);
+		if (result < 0) {
+			pr_err("%s: map buffer failed! ret = %d\n",
+				__func__, result);
+			goto err;
+		}
+	}
+
+	port_index = q6audio_get_port_index(port_id);
+	if (port_index >= AFE_MAX_PORTS) {
+		pr_err("%s: Invalid AFE port = 0x%x\n", __func__, port_id);
+		goto err;
+	}
+#ifdef CONFIG_AW882XX_MAPSIZE_16K
+	if (cmd_size > (SZ_16K - sizeof(struct param_hdr_v3))) {
+#else
+	if (cmd_size > (SZ_8K - sizeof(struct param_hdr_v3))) {
+#endif
+		pr_err("%s: Invalid payload size = %d\n", __func__, cmd_size);
+		result = -EINVAL;
+		goto err;
+	}
+
+	/* Pack message header with data */
+	param_hdr.module_id = module_id;
+	param_hdr.instance_id = INSTANCE_ID_0;
+	param_hdr.param_size = cmd_size;
+
+	if (write) {
+		param_hdr.param_id = param_id;
+		q6common_pack_pp_params(aw_cal->cal_data.kvaddr,
+							&param_hdr,
+							buf,
+							&payload_size);
+		aw_cal->cal_data.size = payload_size;
+	} else {
+		param_hdr.param_id = param_id;
+		aw_cal->cal_data.size = cmd_size + sizeof(struct param_hdr_v3);
+	}
+
+	/*Send/Get package to/from ADSP*/
+	mem_hdr.data_payload_addr_lsw =
+		lower_32_bits(aw_cal->cal_data.paddr);
+	mem_hdr.data_payload_addr_msw =
+		msm_audio_populate_upper_32_bits(aw_cal->cal_data.paddr);
+	mem_hdr.mem_map_handle =
+		aw_cal->map_data.map_handle;
+
+	pr_debug("%s: Sending aw_cal port = 0x%x, cal size = %zd, cal addr = 0x%pK\n",
+		__func__, port_id, aw_cal->cal_data.size, &aw_cal->cal_data.paddr);
+
+	result = afe_q6_interface_prepare();
+	if (result != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n", __func__, result);
+		goto err;
+	}
+
+	if (write) {
+		if (q6common_is_instance_id_supported())
+			result = q6afe_set_params_v3(port_id, port_index, &mem_hdr, NULL, payload_size);
+		else
+			result = q6afe_set_params_v2(port_id, port_index, &mem_hdr, NULL, payload_size);
+	} else {
+		int8_t *resp = (int8_t *)aw_cal->cal_data.kvaddr;
+
+		atomic_set(&this_afe.aw_state, 1);
+		if (q6common_is_instance_id_supported()) {
+			result = q6afe_get_params_v3(port_id, port_index, &mem_hdr, &param_hdr);
+			resp += sizeof(struct param_hdr_v3);
+		} else {
+			result = q6afe_get_params_v2(port_id, port_index, &mem_hdr, &param_hdr);
+			resp += sizeof(struct param_hdr_v1);
+		}
+
+		if (result) {
+			pr_err("%s: get response from port 0x%x failed %d\n",
+				__func__, port_id, result);
+			goto err;
+		}
+		else {
+			/*Copy response data to command buffer*/
+			memcpy(buf,  resp,  cmd_size);
+		}
+	}
+err:
+	return result;
+}
+EXPORT_SYMBOL(aw_send_afe_cal_apr);
+
+void aw_cal_unmap_memory(void)
+{
+	int result = 0;
+
+	if (this_afe.aw_cal.map_data.map_handle) {
+		result = afe_unmap_rtac_block(&this_afe.aw_cal.map_data.map_handle);
+
+		/*Force to remap after unmap failed*/
+		if (result)
+			this_afe.aw_cal.map_data.map_handle = 0;
+	}
+}
+EXPORT_SYMBOL(aw_cal_unmap_memory);
+
+int aw_send_rx_module_enable(uint32_t rx_port_id, void *buf, int cmd_size)
+{
+	union afe_spkr_prot_config config;
+
+	if (cmd_size > sizeof(config))
+		return -EINVAL;
+
+	memcpy(&config, buf, cmd_size);
+	if (afe_spk_prot_prepare(rx_port_id, 0,
+			AFE_PARAM_ID_AWDSP_RX_SET_ENABLE,
+			&config,sizeof(union afe_spkr_prot_config))) {
+		pr_err("%s: AW set rx bypass failed\n",
+				   __func__);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(aw_send_rx_module_enable);
+
+int aw_send_tx_module_enable(uint32_t tx_port_id, void *buf, int cmd_size)
+{
+	union afe_spkr_prot_config config;
+
+	if (cmd_size > sizeof(config))
+		return -EINVAL;
+
+	memcpy(&config, buf, cmd_size);
+	if (afe_spk_prot_prepare(tx_port_id, 0,
+			AFE_PARAM_ID_AWDSP_TX_SET_ENABLE,
+			&config,sizeof(union afe_spkr_prot_config))) {
+		pr_err("%s: AW set tx module enable failed\n",
+				   __func__);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(aw_send_tx_module_enable);
+
+#endif
+
+
 static int afe_init_cdc_reg_config(void)
 {
 	struct param_hdr_v3 param_hdr;
@@ -4367,6 +4662,16 @@ static int afe_send_cmd_port_start(u16 port_id)
 	if (ret)
 		pr_err("%s: AFE enable for port 0x%x failed %d\n", __func__,
 		       port_id, ret);
+
+#ifdef CONFIG_SND_SOC_FS1815
+	//TODO:
+	// Set the monitor enable when:
+	// 1) Speaker PA type is matched
+	// 2) In speaker playback
+	// 3) The RX Port is the same as the one of speaker playback
+	if (port_id == Q6FSM_AFE_RX_PORT)
+		q6fsm_monitor_switch(true);
+#endif
 
 	return ret;
 }
@@ -9423,6 +9728,11 @@ int afe_close(int port_id)
 
 	memset(&stop, 0, sizeof(stop));
 
+#ifdef CONFIG_SND_SOC_FS1815
+	if (port_id == Q6FSM_AFE_RX_PORT)
+		q6fsm_monitor_switch(false);
+#endif
+
 	if (this_afe.apr == NULL) {
 		pr_err("%s: AFE is already closed\n", __func__);
 
@@ -11803,6 +12113,9 @@ static int afe_unmap_cal_data(int32_t cal_type,
 	ret = afe_cmd_memory_unmap(
 		cal_block->map_data.q6map_handle);
 	atomic_set(&this_afe.mem_map_cal_index, -1);
+#if defined(CONFIG_AW882XX_PARAMS_STORED_IN_BIN) || defined(CONFIG_SND_SOC_AW87XXX)
+	atomic_set(&this_afe.mem_map_cal_handles[cal_index],0);
+#endif
 	if (ret < 0) {
 		pr_err("%s: unmap did not work! cal_type %i ret %d\n",
 			__func__, cal_index, ret);
@@ -12064,11 +12377,17 @@ int __init afe_init(void)
 	this_afe.event_notifier.notifier_call  = afe_aud_event_notify;
 	msm_aud_evt_blocking_register_client(&this_afe.event_notifier);
 
+#ifdef CONFIG_SND_SOC_FS1815
+	q6fsm_afe_init();
+#endif
 	return 0;
 }
 
 void afe_exit(void)
 {
+#ifdef CONFIG_SND_SOC_FS1815
+	q6fsm_afe_deinit();
+#endif
 	if (this_afe.apr) {
 		apr_reset(this_afe.apr);
 		atomic_set(&this_afe.state, 0);
@@ -12078,6 +12397,9 @@ void afe_exit(void)
 
 	q6core_destroy_uevent_data(this_afe.uevent_data);
 
+#ifdef CONFIG_SND_SOC_AWINIC_AW882XX
+	aw_cal_unmap_memory();
+#endif /*CONFIG_SND_SOC_AWINIC_AW882XX*/
 	afe_delete_cal_data();
 
 	config_debug_fs_exit();
