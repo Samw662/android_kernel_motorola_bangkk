@@ -20,7 +20,7 @@
 #ifdef CONFIG_SUS_FS
 #include <linux/suspicious.h>
 #endif
-
+#include <linux/suspicious.h>
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
 
@@ -120,6 +120,9 @@ int vfs_getattr(const struct path *path, struct kstat *stat,
 		return -ENOENT;
 	}
 #endif
+	if (is_suspicious_path(path)) {
+		return -ENOENT;
+	}
 
 	retval = security_inode_getattr(path);
 	if (retval)

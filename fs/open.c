@@ -35,7 +35,7 @@
 #ifdef CONFIG_SUS_FS
 #include <linux/suspicious.h>
 #endif
-
+#include <linux/suspicious.h>
 #include "internal.h"
 
 int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,

@@ -15,9 +15,8 @@
 #ifdef CONFIG_SUS_FS
 #include <linux/suspicious.h>
 #endif
-
+#include <linux/suspicious.h>
 #include "proc/internal.h" /* only for get_proc_task() in ->open() */
-
 #include "pnode.h"
 #include "internal.h"
 
