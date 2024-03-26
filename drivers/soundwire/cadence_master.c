@@ -1356,6 +1356,15 @@ int sdw_cdns_alloc_stream(struct sdw_cdns *cdns,
 	pdi->h_ch_num = ch - 1;
 	pdi->dir = dir;
 	pdi->ch_count = ch;
+		pdi = cdns_find_pdi(cdns, 0, stream->num_bd, stream->bd,
+				    dai_id);
+
+	if (pdi) {
+		pdi->l_ch_num = 0;
+		pdi->h_ch_num = ch - 1;
+		pdi->dir = dir;
+		pdi->ch_count = ch;
+	}
 
 	return 0;
 }
