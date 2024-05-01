@@ -419,6 +419,8 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 			return IIO_VAL_INT_PLUS_MICRO;
 		} else {
 			int mult;
+			return IIO_VAL_INT_PLUS_NANO;
+		}
 
 			mutex_lock(&iio_dev->mlock);
 
