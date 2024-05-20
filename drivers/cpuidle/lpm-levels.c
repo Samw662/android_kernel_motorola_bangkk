@@ -47,6 +47,7 @@
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
+#define MAX_LPM_CPUS (8)
 
 static struct system_pm_ops *sys_pm_ops;
 
@@ -93,6 +94,19 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 
 static bool sleep_disabled;
 module_param_named(sleep_disabled, sleep_disabled, bool, 0664);
+
+#ifdef CONFIG_DEBUG_FS
+extern void gpio_debug_print_enabled(void);
+#endif
+
+#ifdef CONFIG_SMP
+static int lpm_cpu_qos_notify(struct notifier_block *nb,
+		unsigned long val, void *ptr);
+
+static struct notifier_block dev_pm_qos_nb[MAX_LPM_CPUS] = {
+	[0 ... (MAX_LPM_CPUS - 1)] = { .notifier_call = lpm_cpu_qos_notify },
+};
+#endif
 
 #ifdef CONFIG_SCHED_WALT
 static bool check_cpu_isolated(int cpu)
@@ -1004,6 +1018,9 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		if (!from_idle) {
 			clock_debug_print_enabled();
 			regulator_debug_print_enabled();
+#ifdef CONFIG_DEBUG_FS
+			gpio_debug_print_enabled();
+#endif
 		}
 
 		cpu = get_next_online_cpu(from_idle);

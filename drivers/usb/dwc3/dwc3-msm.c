@@ -5144,6 +5144,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_start_stop_device(mdwc, true);
 	}
 
+	if (of_property_read_bool(mdwc->dev->of_node,
+					"qcom,force-adb-enable")) {
+		dev_err(mdwc->dev, "%s: force usb start device mode\n", __func__);
+		dwc3_start_stop_device(mdwc, true);
+	}
+
 	return 0;
 
 put_dwc3:

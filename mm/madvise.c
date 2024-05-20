@@ -1252,7 +1252,7 @@ static int do_process_madvise(struct task_struct *target_task,
 	return ret;
 }
 
-SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid,
+SYSCALL_DEFINE5(process_madvise, int, pidfd,
 		const struct iovec __user *, vec, unsigned long, vlen,
 		int, behavior, unsigned long, flags)
 {
@@ -1267,25 +1267,10 @@ SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid,
 	if (flags != 0)
 		return -EINVAL;
 
-	switch (which) {
-	case P_PID:
-		if (upid <= 0)
-			return -EINVAL;
-
-		pid = find_get_pid(upid);
-		if (!pid)
-			return -ESRCH;
-		break;
-	case P_PIDFD:
-		if (upid < 0)
-			return -EINVAL;
-
-		pid = pidfd_get_pid(upid);
-		if (IS_ERR(pid))
-			return PTR_ERR(pid);
-		break;
-	default:
-		return -EINVAL;
+	pid = pidfd_get_pid(pidfd);
+	if (IS_ERR(pid)) {
+		ret = PTR_ERR(pid);
+		goto out;
 	}
 
 	task = get_pid_task(pid, PIDTYPE_PID);
@@ -1299,10 +1284,20 @@ SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid,
 		goto release_task;
 	}
 
-	mm = mm_access(task, PTRACE_MODE_ATTACH_FSCREDS);
+	/* Require PTRACE_MODE_READ to avoid leaking ASLR metadata. */
+	mm = mm_access(task, PTRACE_MODE_READ_FSCREDS);
 	if (IS_ERR_OR_NULL(mm)) {
 		ret = IS_ERR(mm) ? PTR_ERR(mm) : -ESRCH;
 		goto release_task;
+	}
+
+	/*
+	 * Require CAP_SYS_NICE for influencing process performance. Note that
+	 * only non-destructive hints are currently supported.
+	 */
+	if (!capable(CAP_SYS_NICE)) {
+		ret = -EPERM;
+		goto release_mm;
 	}
 
 	ret = import_iovec(READ, vec, vlen, ARRAY_SIZE(iovstack), &iov, &iter);
@@ -1314,10 +1309,13 @@ SYSCALL_DEFINE6(process_madvise, int, which, pid_t, upid,
 			ret = total_len - iov_iter_count(&iter);
 		kfree(iov);
 	}
+
+release_mm:
 	mmput(mm);
 release_task:
 	put_task_struct(task);
 put_pid:
 	put_pid(pid);
+out:
 	return ret;
 }

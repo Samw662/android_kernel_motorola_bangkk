@@ -67,6 +67,7 @@
 #include <linux/uaccess.h>
 
 #include <trace/events/vmscan.h>
+#include <trace/hooks/mm.h>
 
 struct cgroup_subsys memory_cgrp_subsys __read_mostly;
 EXPORT_SYMBOL(memory_cgrp_subsys);
@@ -2361,10 +2362,15 @@ static void reclaim_high(struct mem_cgroup *memcg,
 			 gfp_t gfp_mask)
 {
 	do {
+		unsigned long pflags;
 		if (page_counter_read(&memcg->memory) <= memcg->high)
 			continue;
+
 		memcg_memory_event(memcg, MEMCG_HIGH);
+
+		psi_memstall_enter(&pflags);
 		try_to_free_mem_cgroup_pages(memcg, nr_pages, gfp_mask, true);
+		psi_memstall_leave(&pflags);
 	} while ((memcg = parent_mem_cgroup(memcg)));
 }
 
@@ -2551,9 +2557,10 @@ static int try_charge(struct mem_cgroup *memcg, gfp_t gfp_mask,
 	struct mem_cgroup *mem_over_limit;
 	struct page_counter *counter;
 	unsigned long nr_reclaimed;
+	enum oom_status oom_status;
 	bool may_swap = true;
 	bool drained = false;
-	enum oom_status oom_status;
+	unsigned long pflags;
 
 	if (mem_cgroup_is_root(memcg))
 		return 0;
@@ -2613,8 +2620,10 @@ retry:
 
 	memcg_memory_event(mem_over_limit, MEMCG_MAX);
 
+	psi_memstall_enter(&pflags);
 	nr_reclaimed = try_to_free_mem_cgroup_pages(mem_over_limit, nr_pages,
 						    gfp_mask, may_swap);
+	psi_memstall_leave(&pflags);
 
 	if (mem_cgroup_margin(mem_over_limit) >= nr_pages)
 		goto retry;
@@ -5005,6 +5014,7 @@ static DEFINE_IDR(mem_cgroup_idr);
 static void mem_cgroup_id_remove(struct mem_cgroup *memcg)
 {
 	if (memcg->id.id > 0) {
+		trace_android_vh_mem_cgroup_id_remove(memcg);
 		idr_remove(&mem_cgroup_idr, memcg->id.id);
 		memcg->id.id = 0;
 	}
@@ -5042,6 +5052,7 @@ struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
 	return idr_find(&mem_cgroup_idr, id);
 }
 
+EXPORT_SYMBOL_GPL(mem_cgroup_from_id);
 static int alloc_mem_cgroup_per_node_info(struct mem_cgroup *memcg, int node)
 {
 	struct mem_cgroup_per_node *pn;
@@ -5098,6 +5109,7 @@ static void __mem_cgroup_free(struct mem_cgroup *memcg)
 {
 	int node;
 
+	trace_android_vh_mem_cgroup_free(memcg);
 	for_each_node(node)
 		free_mem_cgroup_per_node_info(memcg, node);
 	free_percpu(memcg->vmstats_percpu);
@@ -5179,6 +5191,7 @@ static struct mem_cgroup *mem_cgroup_alloc(void)
 	memcg->deferred_split_queue.split_queue_len = 0;
 #endif
 	idr_replace(&mem_cgroup_idr, memcg, memcg->id.id);
+	trace_android_vh_mem_cgroup_alloc(memcg);
 	return memcg;
 fail:
 	mem_cgroup_id_remove(memcg);
@@ -5265,6 +5278,7 @@ static int mem_cgroup_css_online(struct cgroup_subsys_state *css)
 	/* Online state pins memcg ID, memcg ID pins CSS */
 	refcount_set(&memcg->id.ref, 1);
 	css_get(css);
+	trace_android_vh_mem_cgroup_css_online(css, memcg);
 	return 0;
 }
 
@@ -5273,6 +5287,7 @@ static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
 	struct mem_cgroup_event *event, *tmp;
 
+	trace_android_vh_mem_cgroup_css_offline(css, memcg);
 	/*
 	 * Unregister events and notify userspace.
 	 * Notify userspace about cgroup removing only after rmdir of cgroup
