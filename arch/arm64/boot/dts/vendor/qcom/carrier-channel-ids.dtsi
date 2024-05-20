@@ -232,9 +232,9 @@
 		"retjio",	/* 215 */
 		"ymobile",	/* 216 */
 		"lguplus",	/* 217 */
-		"undefined",	/* 218 */
-		"undefined",	/* 219 */
-		"undefined",	/* 220 */
+		"docomo",	/* 218 */
+		"retanz",	/* 219 */
+		"cbncn",	/* 220 */
 		"undefined",	/* 221 */
 		"undefined",	/* 222 */
 		"undefined",	/* 223 */

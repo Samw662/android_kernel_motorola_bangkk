@@ -94,7 +94,7 @@
 		pinctrl-0 = <&lcd_panel_avee_default>;
 	};
 
-	dsi_panel_pwr_supply_fogor: dsi_panel_pwr_supply_fogor{
+	dsi_panel_pwr_supply_fogos: dsi_panel_pwr_supply_fogos{
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -134,7 +134,7 @@
 
 	};
 
-	dsi_panel_pwr_supply_fogor_chipone: dsi_panel_pwr_supply_fogor_chipone{
+	dsi_panel_pwr_supply_fogos_chipone: dsi_panel_pwr_supply_fogos_chipone{
                 #address-cells = <1>;
                 #size-cells = <0>;
 
@@ -199,7 +199,7 @@
 	/*qcom,mdss-dsi-pan-dfps-send-command;*/
 	qcom,mdss-dsi-pan-on-fps = <120>;
 
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_fogor_chipone>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_fogos_chipone>;
 
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <13>;
@@ -255,7 +255,7 @@
 	/*qcom,mdss-dsi-pan-dfps-send-command;*/
 	qcom,mdss-dsi-pan-on-fps = <120>;
 
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_fogor>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_fogos>;
 
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <11>;
