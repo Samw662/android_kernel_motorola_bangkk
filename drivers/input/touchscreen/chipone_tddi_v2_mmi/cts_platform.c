@@ -6,6 +6,8 @@
 #include "cts_firmware.h"
 #include "cts_sysfs.h"
 #include "cts_tcs.h"
+extern struct chipone_ts_data *g_cts_data;
+static struct wakeup_source *gesture_wakelock;
 
 #ifdef CFG_CTS_FW_LOG_REDIRECT
 size_t cts_plat_get_max_fw_log_size(struct cts_platform_data *pdata)
@@ -133,7 +135,9 @@ int cts_spi_send_recv(struct cts_platform_data *pdata, size_t len,
     struct chipone_ts_data *cts_data;
     struct spi_message msg;
     struct spi_transfer cmd = {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
         .delay_usecs = 0,
+#endif
         .speed_hz = pdata->spi_speed * 1000u,
         .tx_buf = tx_buffer,
         .rx_buf = rx_buffer,
@@ -458,6 +462,9 @@ int cts_plat_is_normal_mode(struct cts_platform_data *pdata)
 
     cts_set_normal_addr(pdata->cts_dev);
     cts_data = container_of(pdata->cts_dev, struct chipone_ts_data, cts_dev);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+    (void)cts_data;
+#endif
     ret = cts_tcs_get_fw_id(pdata->cts_dev, &fwid);
 /*
         addr = CTS_DEVICE_FW_REG_CHIP_TYPE;
@@ -491,6 +498,10 @@ static irqreturn_t cts_plat_irq_handler(int irq, void *dev_id)
 #ifndef CONFIG_GENERIC_HARDIRQS
     struct chipone_ts_data *cts_data;
 #endif
+#ifdef TOUCHSCREEN_PM_BRL_SPI
+    int ret = 0;
+    struct chipone_ts_data *cts_data;
+#endif
 
     cts_dbg("IRQ handler");
 
@@ -499,6 +510,23 @@ static irqreturn_t cts_plat_irq_handler(int irq, void *dev_id)
         cts_err("IRQ handler with NULL dev_id");
         return IRQ_NONE;
     }
+
+#ifdef TOUCHSCREEN_PM_BRL_SPI
+    cts_data = container_of(pdata->cts_dev, struct chipone_ts_data, cts_dev);
+    if ((cts_data->cts_dev.rtdata.suspended) &&
+            (cts_data->cts_dev.rtdata.gesture_wakeup_enabled)) {
+        if (pdata->gesture_wait_pm) {
+            PM_WAKEUP_EVENT(cts_data->gesture_wakelock, 3000);
+            /* Waiting for pm resume completed */
+            ret = wait_event_interruptible_timeout(cts_data->pm_wq, atomic_read(&cts_data->pm_resume), msecs_to_jiffies(700));
+            if (!ret) {
+                cts_err("system(spi) can't finished resuming procedure.");
+                return IRQ_HANDLED;
+            }
+        }
+    }
+#endif
+
 #ifdef CONFIG_GENERIC_HARDIRQS
     cts_plat_handle_irq(pdata);
 #else
@@ -557,7 +585,23 @@ static int cts_plat_parse_dt(struct cts_platform_data *pdata,
         pdata->rst_gpio = -1;
     }
     cts_info("  %-12s: %d", "rst gpio", pdata->rst_gpio);
+
+    pdata->rst_pull_flag = of_property_read_bool(dev_node, "chipone,rst-pull-flag");
+    if (!pdata->rst_pull_flag) {
+        cts_err("Parse RST PULL FLAG from dt failed %d", pdata->rst_pull_flag);
+        pdata->rst_pull_flag = false;
+    }
+    cts_info("  %-12s: %d", "rst pull flag", pdata->rst_pull_flag);
 #endif /* CFG_CTS_HAS_RESET_PIN */
+
+#ifdef TOUCHSCREEN_PM_BRL_SPI
+    pdata->gesture_wait_pm = of_property_read_bool(dev_node, "chipone,gesture-wait-pm");
+    if (!pdata->gesture_wait_pm) {
+        cts_err("Parse gesture wait pm from dt failed %d", pdata->gesture_wait_pm);
+        pdata->gesture_wait_pm = false;
+    }
+    cts_info("  %-12s: %d", "gesture wait pm", pdata->gesture_wait_pm);
+#endif
 
 #ifdef CFG_CTS_MANUAL_CS
     pdata->cs_gpio = of_get_named_gpio(dev_node, CFG_CTS_OF_CS_GPIO_NAME, 0);
@@ -604,6 +648,10 @@ static int cts_plat_parse_dt(struct cts_platform_data *pdata,
         cts_info("panel supplier=%s", (char *)pdata->panel_supplier);
 #endif
 
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        if (!of_property_read_u32(dev_node, "chipone,supported_gesture_type", &pdata->supported_gesture_type))
+                cts_info("chipone,supported_gesture_type=%02x\n", pdata->supported_gesture_type);
+#endif
     return 0;
 }
 #endif /* CONFIG_CTS_OF */
@@ -746,7 +794,7 @@ int cts_init_platform_data(struct cts_platform_data *pdata,
 
 #ifdef CFG_CTS_GESTURE
     {
-        u8 gesture_keymap[CFG_CTS_NUM_GESTURE][2] = CFG_CTS_GESTURE_KEYMAP;
+        int gesture_keymap[CFG_CTS_NUM_GESTURE][2] = CFG_CTS_GESTURE_KEYMAP;
 
         memcpy(pdata->gesture_keymap, gesture_keymap, sizeof(gesture_keymap));
         pdata->gesture_num = CFG_CTS_NUM_GESTURE;
@@ -999,9 +1047,10 @@ int cts_plat_process_touch_msg(struct cts_platform_data *pdata,
 #endif
 
     cts_dbg("Process touch %d msgs", num);
-
     cts_data = container_of(pdata->cts_dev, struct chipone_ts_data, cts_dev);
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+    (void) cts_data;
+#endif
     if (num == 0 || num > CFG_CTS_MAX_TOUCH_NUM)
         return 0;
 
@@ -1035,6 +1084,9 @@ int cts_plat_process_touch_msg(struct cts_platform_data *pdata,
         case CTS_DEVICE_TOUCH_EVENT_MOVE:
         case CTS_DEVICE_TOUCH_EVENT_STAY:
             contact++;
+	    #ifdef CONFIG_GTP_LAST_TIME
+	    cts_data->last_event_time = ktime_get_boottime();
+	    #endif
             input_mt_slot(input_dev, msgs[i].id);
             input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, true);
             input_report_abs(input_dev, ABS_MT_POSITION_X, x);
@@ -1131,13 +1183,11 @@ int cts_plat_process_touch_msg(struct cts_platform_data *pdata,
 int cts_plat_release_all_touch(struct cts_platform_data *pdata)
 {
     struct input_dev *input_dev = pdata->ts_input_dev;
-
 #if defined(CONFIG_CTS_SLOTPROTOCOL)
     int id;
 #endif /* CONFIG_CTS_SLOTPROTOCOL */
 
     cts_info("Release all touch");
-
 #ifdef CONFIG_CTS_SLOTPROTOCOL
     for (id = 0; id < CFG_CTS_MAX_TOUCH_NUM; id++) {
         input_mt_slot(input_dev, id);
@@ -1288,12 +1338,19 @@ int cts_plat_process_gesture_info(struct cts_platform_data *pdata,
     for (i = 0; i < CFG_CTS_NUM_GESTURE; i++) {
         if (gesture_info->gesture_id == pdata->gesture_keymap[i][0]) {
             cts_info("Report key[%u]", pdata->gesture_keymap[i][1]);
-            input_report_key(pdata->ts_input_dev, pdata->gesture_keymap[i][1], 1);
+#ifdef CHIPONE_SENSOR_EN
+		PM_WAKEUP_EVENT(gesture_wakelock, 5000);
+		input_report_key(g_cts_data->sensor_pdata->input_sensor_dev, pdata->gesture_keymap[i][1], 1);
+		input_sync(g_cts_data->sensor_pdata->input_sensor_dev);
+		input_report_key(g_cts_data->sensor_pdata->input_sensor_dev, pdata->gesture_keymap[i][1], 0);
+		input_sync(g_cts_data->sensor_pdata->input_sensor_dev);
+#else
+	    input_report_key(pdata->ts_input_dev, pdata->gesture_keymap[i][1], 1);
             input_sync(pdata->ts_input_dev);
 
             input_report_key(pdata->ts_input_dev, pdata->gesture_keymap[i][1], 0);
             input_sync(pdata->ts_input_dev);
-
+#endif
             return 0;
         }
     }

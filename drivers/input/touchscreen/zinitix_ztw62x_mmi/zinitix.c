@@ -233,6 +233,9 @@ struct reg_ioctl {
 #define	ZINITIX_I2C_CHECKSUM_WCNT	0x016a
 #define	ZINITIX_I2C_CHECKSUM_RESULT	0x016c
 
+#define BT541_GESTURE_CONTROL_REG 0x011D
+#define BT541_CLEAR_GESTURE_CMD 0x0088
+
 /* Interrupt & status register flag bit
 -------------------------------------------------
 */
@@ -1139,6 +1142,7 @@ static int zinitix_power_control(struct bt541_ts_info *data, int on)
 		}
 		dev_info(&data->client->dev, "Enable data->vcc_i2c regualtor\n");
 	}
+	data->ic_power_state = TS_MMI_POWER_ON;
 
 	return 0;
 
@@ -1175,6 +1179,7 @@ power_off:
 		gpio_direction_output(data->pdata->gpio_reset, 0);
 		pr_info("%s: set gpio_reset to 0 success\n", __func__);
 	}
+	data->ic_power_state = TS_MMI_POWER_OFF;
 
 	return 0;
 }
@@ -2535,12 +2540,18 @@ static irqreturn_t bt541_touch_work(int irq, void *data)
 			input_report_key(info->input_dev, KEY_LARGE, 0);
 			input_sync(info->input_dev);
 */
+			write_cmd(client, BT541_SWRESET_CMD);
+			msleep(20);
+			write_cmd(client, BT541_CLEAR_INT_STATUS_CMD);
 			dev_err(&client->dev, "large touch palm enter\n");
+#ifndef CONFIG_INPUT_TOUCHSCREEN_MMI
 			input_report_key(info->input_dev, KEY_POWER, 1);
 			input_sync(info->input_dev);
 			input_report_key(info->input_dev, KEY_POWER, 0);
 			input_sync(info->input_dev);
 			palm = 1;
+#endif
+			clear_report_data(info);
 			goto out;
 	}
 #if 0
@@ -2703,6 +2714,38 @@ static int bt541_pinctrl_configure(struct bt541_ts_info *info, bool active)
 	return 0;
 }
 #endif
+
+int zinitix_ts_mmi_disable_gesture(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bt541_ts_info *info = i2c_get_clientdata(client);
+
+	down(&info->work_lock);
+	if (write_reg(client, BT541_GESTURE_CONTROL_REG, BT541_CLEAR_GESTURE_CMD) != I2C_SUCCESS) {
+		zinitix_printk("Disable gestures failed\n");
+		up(&info->work_lock);
+		return -1;
+	}
+	up(&info->work_lock);
+
+	return 0;
+}
+
+int zinitix_ts_mmi_restore_gesture(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bt541_ts_info *info = i2c_get_clientdata(client);
+
+	down(&info->work_lock);
+	if (write_reg(client, BT541_GESTURE_CONTROL_REG, info->gesture_command) != I2C_SUCCESS) {
+		zinitix_printk("Restore gestures failed\n");
+		up(&info->work_lock);
+		return -1;
+	}
+	up(&info->work_lock);
+
+	return 0;
+}
 
 int zinitix_ts_mmi_gesture_suspend(struct device *dev)
 {
@@ -5928,6 +5971,10 @@ static int bt541_ts_probe_dt(struct device_node *np,
 		return ret;
 	}
 
+	pdata->stow_mode_ctrl = of_property_read_bool(np, "zinitix,stow-mode-ctrl");
+	if (pdata->stow_mode_ctrl)
+		pr_info("%s: Support zinitix touch stow mode", __func__);
+
 	if (pdata->tsp_supply_type == TSP_LDO_SUPPLY) {
 		pdata->tsp_en_gpio = of_get_named_gpio(np, "zinitix,vdd_en-gpio", 0);
 		if (pdata->tsp_en_gpio < 0) {
@@ -6137,11 +6184,13 @@ static int bt541_ts_probe(struct i2c_client *client,
 	set_bit(EV_ABS, info->input_dev->evbit);
 	set_bit(BTN_TOUCH, info->input_dev->keybit);
 
+#ifndef CONFIG_INPUT_TOUCHSCREEN_MMI
 #if SUPPORTED_PALM_TOUCH
 	//set_bit(KEY_POWER, info->input_dev->evbit);
 	//input_set_capability(info->input_dev, EV_KEY, KEY_LARGE);
 	input_set_capability(info->input_dev, EV_KEY, KEY_POWER);
 	dev_err(&client->dev,"KEY_POWER register finish\n");
+#endif
 #endif
 
 	set_bit(EV_LED, info->input_dev->evbit);

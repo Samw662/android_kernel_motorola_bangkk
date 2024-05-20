@@ -43,6 +43,7 @@
 #define GOODIX_IC_INFO_ADDR			0x10070
 
 #define TRIGGER_FRAME_CNT 50
+#define MAX_FRAME_LENGTH 2500
 
 enum brl_request_code {
 	BRL_REQUEST_CODE_CONFIG = 0x01,
@@ -1036,6 +1037,10 @@ static int brl_esd_check(struct goodix_ts_core *cd)
 #define GOODIX_GESTURE_EVENT		0x20
 #define POINT_TYPE_STYLUS_HOVER		0x01
 #define POINT_TYPE_STYLUS			0x03
+#ifdef CONFIG_MOTO_DDA_PASSIVESTYLUS
+#define POINT_TYPE_PALM			0x04
+#endif
+#define GOODIX_PALM_FLAG			0x10
 
 static void goodix_parse_finger(struct goodix_touch_data *touch_data,
 				u8 *buf, int touch_num)
@@ -1052,6 +1057,12 @@ static void goodix_parse_finger(struct goodix_touch_data *touch_data,
 			touch_data->touch_num = 0;
 			return;
 		}
+#ifdef CONFIG_MOTO_DDA_PASSIVESTYLUS
+		if ((coor_data[0] & 0x0F) == POINT_TYPE_PALM)
+			touch_data->coords[id].plam_status = true;
+		else
+			touch_data->coords[id].plam_status = false;
+#endif
 		x = le16_to_cpup((__le16 *)(coor_data + 2));
 		y = le16_to_cpup((__le16 *)(coor_data + 4));
 		w = le16_to_cpup((__le16 *)(coor_data + 6));
@@ -1132,6 +1143,14 @@ static int goodix_touch_handler(struct goodix_ts_core *cd,
 	memset(ts_event, 0, sizeof(*ts_event));
 	/* copy pre-data to buffer */
 	memcpy(buffer, pre_buf, pre_buf_len);
+
+#ifdef CONFIG_ENABLE_GTP_PALM_CANCEL
+	if (buffer[2] & GOODIX_PALM_FLAG) {
+		ts_event->touch_data.palm_on = true;
+		ts_debug("goodix palm on, touch num %d", pre_buf[2] & 0x0F);
+	} else
+		ts_event->touch_data.palm_on = false;
+#endif
 
 	if (cd->set_mode.liquid_detection) {
 		underwater_flag = buffer[2] & GOODIX_GESTURE_UNDER_WATER;
@@ -1258,9 +1277,28 @@ static int goodix_touch_handler(struct goodix_ts_core *cd,
 }
 
 #ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
+static int discard_frames = 3;
+static int frame_cnt;
+static int freq_index;
+static int process;
+static size_t total_cnt;
+
+int frame_log_capture_stop(struct goodix_ts_core *cd)
+{
+	cd->hw_ops->reset(cd, 100);
+	vfree(frame_log.buf);
+	ts_info("stop ghost log capture, trigger_enable state change to 0");
+	return 0;
+}
+
 int frame_log_capture_start(struct goodix_ts_core *cd)
 {
 	struct goodix_ts_cmd tmp_cmd;
+
+	if (atomic_read(&cd->allow_capture) == 0) {
+		ts_info("Touch not active, not allow ghost log capture");
+		return 0;
+	}
 
 	if (atomic_read(&cd->trigger_enable) != 0)
 		return 0;
@@ -1268,13 +1306,22 @@ int frame_log_capture_start(struct goodix_ts_core *cd)
 	frame_log.buf = vmalloc(4 * 1024);
 	if (!frame_log.buf)
 		return -ENOMEM;
+
+	//init parameters
 	frame_log.used = 0;
+	cd->data_valid = 1;
+	discard_frames = 3;
+	frame_cnt = 0;
+	freq_index = 0;
+	process = 0;
+	total_cnt = 0;
 
 	tmp_cmd.len = 5;
 	tmp_cmd.cmd = 0x90;
 	tmp_cmd.data[0] = 0x83;
 	cd->hw_ops->send_cmd(cd, &tmp_cmd);
 	atomic_set(&cd->trigger_enable, 1);
+	ts_info("start ghost log capture");
 	return 0;
 }
 
@@ -1287,16 +1334,11 @@ static void goodix_cache_debug_log(struct goodix_ts_core *cd)
 	u8 freq_cmd[] = {0x00, 0x00, 0x05, 0x9C, 0x00, 0xA1, 0x00};
 	struct goodix_ts_hw_ops *hw_ops = cd->hw_ops;
 	struct goodix_ic_info_misc *misc = &cd->ic_info.misc;
-	static int discard_frames = 3;
-	static int frame_cnt;
-	static int freq_index;
-	static int process;
 	u32 cmd_addr = misc->cmd_addr;
 	int freq_num = cd->ic_info.parm.mutual_freq_num;
 	u8 frame_type = 0;
 	u8 *frame_ptr = misc->frame_data_addr - misc->touch_data_addr + cd->trigger_buf;
 	int frame_len = le16_to_cpup((__le16 *)(frame_ptr + 3));
-	static size_t total_cnt;
 
 	hw_ops->write(cd, misc->frame_data_addr, &sync, 1);
 	if (discard_frames > 0) {
@@ -1318,6 +1360,14 @@ static void goodix_cache_debug_log(struct goodix_ts_core *cd)
 	frame_log.buf[frame_log.used++] = frame_len & 0xFF;
 	frame_log.buf[frame_log.used++] = (frame_len >> 8) & 0xFF;
 	frame_log.buf[frame_log.used++] = frame_type;
+
+	//judge if frame_len is within limit
+	if (frame_len > MAX_FRAME_LENGTH) {
+		ts_info("frame_len is too long, %d", frame_len);
+		frame_len = MAX_FRAME_LENGTH;
+		cd->data_valid = 0;
+	}
+
 	memcpy(frame_log.buf + frame_log.used, frame_ptr, frame_len);
 	frame_log.used += frame_len;
 
@@ -1354,8 +1404,9 @@ static void goodix_cache_debug_log(struct goodix_ts_core *cd)
 				atomic_set(&cd->trigger_enable, 0);
 				total_cnt = 0;
 				vfree(frame_log.buf);
-				ts_info("Notify raw data capture down");
-				sysfs_notify(cd->imports->kobj_notify, NULL, "log_trigger");
+				ts_info("Notify raw data capture down, data_valid:%d", cd->data_valid);
+				if (cd->data_valid == 1)
+					sysfs_notify(cd->imports->kobj_notify, NULL, "log_trigger");
 			} else {
 				hw_ops->write(cd, cmd_addr, freq_cmd, (int)sizeof(freq_cmd));
 				usleep_range(5000, 5100);
@@ -1380,15 +1431,17 @@ static int brl_event_handler(struct goodix_ts_core *cd,
 	int pre_read_len;
 	u8 pre_buf[32];
 	u8 event_status;
-	int ret;
+	int ret = 0;
 
 	pre_read_len = IRQ_EVENT_HEAD_LEN +
 		BYTES_PER_POINT * 2 + COOR_DATA_CHECKSUM_SIZE;
 #ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
 	if (atomic_read(&cd->trigger_enable) == 1) {
+		mutex_lock(&cd->frame_log_lock);
 		ret = hw_ops->read(cd, misc->touch_data_addr, cd->trigger_buf, sizeof(cd->trigger_buf));
 		memcpy(pre_buf, cd->trigger_buf, pre_read_len);
 		goodix_cache_debug_log(cd);
+		mutex_unlock(&cd->frame_log_lock);
 	} else {
 		ret = hw_ops->read(cd, misc->touch_data_addr,
 				pre_buf, pre_read_len);

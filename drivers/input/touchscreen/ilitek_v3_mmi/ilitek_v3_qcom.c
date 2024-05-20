@@ -611,7 +611,7 @@ static int drm_notifier_callback(struct notifier_block *self, unsigned long even
 	}
 
 	blank = evdata->data;
-	ILI_INFO("DRM event:%lu,blank:%d", event, *blank);
+	ILI_DBG("DRM event:%lu,blank:%d", event, *blank);
 	switch (*blank) {
 	case DRM_PANEL_BLANK_UNBLANK:
 		if (DRM_PANEL_EARLY_EVENT_BLANK == event) {
@@ -624,15 +624,36 @@ static int drm_notifier_callback(struct notifier_block *self, unsigned long even
 		break;
 	case DRM_PANEL_BLANK_POWERDOWN:
 		if (DRM_PANEL_EARLY_EVENT_BLANK == event) {
-			ILI_INFO("suspend: event = %lu, TP_SUSPEND\n", event);
+#ifdef ILI_DOUBLE_TAP_CTRL
+			if (ilits->should_enable_gesture) {
+				ILI_INFO("TP suspend: tap gesture suspend\n");
+				if (ili_sleep_handler(TP_SUSPEND) < 0)
+					ILI_ERR("TP suspend failed\n");
+#ifdef ILI_SET_TOUCH_STATE
+				touch_set_state(TOUCH_LOW_POWER_STATE, TOUCH_PANEL_IDX_PRIMARY);
+#endif
+			}
+			else {
+				ILI_INFO("TP suspend: TP_DEEP_SLEEP event = %lu\n", event);
+				if (ili_sleep_handler(TP_DEEP_SLEEP) < 0)
+					ILI_ERR("TP suspend deep sleep fail\n");
+#ifdef ILI_SET_TOUCH_STATE
+				touch_set_state(TOUCH_DEEP_SLEEP_STATE, TOUCH_PANEL_IDX_PRIMARY);
+#endif
+				if (ilits->rst_pull_flag && gpio_get_value(ilits->tp_rst))
+					gpio_set_value(ilits->tp_rst, 0);
+			}
+#else //ILI_DOUBLE_TAP_CTRL
+			ILI_INFO("TP suspend: event = %lu, TP_DEEP_SLEEP\n", event);
 			if (ili_sleep_handler(TP_DEEP_SLEEP) < 0)
-				ILI_ERR("TP suspend failed\n");
+				ILI_ERR("TP suspend deep sleep failed\n");
+#endif //ILI_DOUBLE_TAP_CTRL
 		} else if (DRM_PANEL_EVENT_BLANK == event) {
 			ILI_INFO("suspend: event = %lu, not care\n", event);
 		}
 		break;
 	default:
-		ILI_INFO("DRM BLANK(%d) do not need process\n", *blank);
+		ILI_DBG("DRM BLANK(%d) do not need process\n", *blank);
 		break;
 	}
 
@@ -768,9 +789,9 @@ static int ili_sensor_init(struct ilitek_ts_data *data)
 
 	if (data->report_gesture_key) {
 		__set_bit(EV_KEY, sensor_input_dev->evbit);
-		__set_bit(KEY_F1, sensor_input_dev->keybit);
+		__set_bit(BTN_TRIGGER_HAPPY3, sensor_input_dev->keybit);
 #ifdef ILI_DOUBLE_TAP_CTRL
-		__set_bit(KEY_F4, sensor_input_dev->keybit);
+		__set_bit(BTN_TRIGGER_HAPPY6, sensor_input_dev->keybit);
 #endif
 	} else {
 		__set_bit(EV_ABS, sensor_input_dev->evbit);
@@ -941,6 +962,7 @@ static int ilitek_plat_probe(void)
 	ret = ili_v3_drm_check_dt(ilits->dev->of_node);
 	if (ret) {
 		ILI_ERR("[ili_v3_drm_check_dt] parse drm-panel fail");
+		return ret;
 	}
 #endif
 #endif

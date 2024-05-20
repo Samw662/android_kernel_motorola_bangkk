@@ -33,7 +33,6 @@ static struct goodix_ts_log ts_log_dev;
 /* Save a byte to a FIFO and discard the oldest byte if FIFO is full */
 void put_fifo_with_discard(char *log_buf, int len)
 {
-	int ret = 0;
 	if (!kfifo_initialized(&ts_log_dev.fifo))
 		return;
 	if (kfifo_is_full(&ts_log_dev.fifo)) {
@@ -41,7 +40,7 @@ void put_fifo_with_discard(char *log_buf, int len)
 		ts_info("Save a byte to a FIFO and discard the oldest byte if FIFO is full");
 	}
 
-	ret = kfifo_in(&ts_log_dev.fifo, log_buf, len);
+	kfifo_in(&ts_log_dev.fifo, log_buf, len);
 
 	wake_up_interruptible(&ts_log_dev.wq);
 }
@@ -100,7 +99,7 @@ static const struct file_operations log_device_fops = {
 	.llseek = noop_llseek,
 };
 
-int goodix_log_capture_register_misc(void)
+int goodix_log_capture_register_misc(struct goodix_ts_core *cd)
 {
 	int rc = 0;
 
@@ -111,6 +110,8 @@ int goodix_log_capture_register_misc(void)
 	if (rc)
 		return rc;
 
+	mutex_init(&cd->frame_log_lock);
+
 	ts_log_dev.miscdev.minor = MISC_DYNAMIC_MINOR;
 	ts_log_dev.miscdev.name = GOODIX_LOG_DEVICE_NAME;
 	ts_log_dev.miscdev.fops = &log_device_fops;
@@ -120,9 +121,10 @@ int goodix_log_capture_register_misc(void)
 	return 0;
 }
 
-int goodix_log_capture_unregister_misc(void)
+int goodix_log_capture_unregister_misc(struct goodix_ts_core *cd)
 {
 	kfifo_free(&ts_log_dev.fifo);
 	misc_deregister(&ts_log_dev.miscdev);
+	mutex_destroy(&cd->frame_log_lock);
 	return 0;
 }

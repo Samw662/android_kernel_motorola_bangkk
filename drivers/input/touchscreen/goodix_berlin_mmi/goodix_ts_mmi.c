@@ -58,6 +58,10 @@ static ssize_t goodix_ts_log_trigger_store(struct device *dev,
 static ssize_t goodix_ts_log_trigger_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 #endif
+static ssize_t goodix_ts_stowed_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size);
+static ssize_t goodix_ts_stowed_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
 
 static DEVICE_ATTR(edge, (S_IRUGO | S_IWUSR | S_IWGRP),
 	goodix_ts_edge_show, goodix_ts_edge_store);
@@ -76,6 +80,8 @@ static DEVICE_ATTR(timestamp, S_IRUGO, goodix_ts_timestamp_show, NULL);
 static DEVICE_ATTR(log_trigger, (S_IRUGO | S_IWUSR | S_IWGRP),
 	goodix_ts_log_trigger_show, goodix_ts_log_trigger_store);
 #endif
+static DEVICE_ATTR(stowed, (S_IWUSR | S_IWGRP | S_IRUGO),
+	goodix_ts_stowed_show, goodix_ts_stowed_store);
 
 /* hal settings */
 #define ROTATE_0   0
@@ -128,6 +134,9 @@ static int goodix_ts_mmi_extend_attribute_group(struct device *dev, struct attri
 
 	if (core_data->board_data.sensitivity_ctrl)
 		ADD_ATTR(sensitivity);
+
+	if (core_data->board_data.stowed_mode_ctrl)
+		ADD_ATTR(stowed);
 
 #ifdef CONFIG_GTP_LAST_TIME
 	ADD_ATTR(timestamp);
@@ -571,6 +580,67 @@ static ssize_t goodix_ts_sample_show(struct device *dev,
 
 	ts_info("sample = %d.\n", core_data->set_mode.sample);
 	return scnprintf(buf, PAGE_SIZE, "0x%02x", core_data->set_mode.sample);
+}
+
+static ssize_t goodix_ts_stowed_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long mode = 0;
+	struct platform_device *pdev;
+	struct goodix_ts_core *core_data;
+
+	dev = MMI_DEV_TO_TS_DEV(dev);
+	GET_GOODIX_DATA(dev);
+
+	ret = kstrtoul(buf, 0, &mode);
+	if (ret < 0) {
+		pr_info("Failed to convert value.\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&core_data->mode_lock);
+	core_data->get_mode.stowed = mode;
+	if (core_data->set_mode.stowed == mode) {
+		ts_debug("The value = %lu is same, so not to write", mode);
+		ret = size;
+		goto exit;
+	}
+
+	if ((atomic_read(&core_data->post_suspended) == 1) && (core_data->power_on == 1)) {
+		ret = goodix_ts_send_cmd(core_data, ENTER_STOWED_MODE_CMD, 5,
+			core_data->get_mode.stowed, 0x00);
+		if (ret < 0) {
+			ts_err("Failed to set stowed mode %lu\n", mode);
+			goto exit;
+		}
+	} else {
+		ts_info("Skip stowed mode setting post_suspended:%d, power_on:%d.\n",
+			atomic_read(&core_data->post_suspended), core_data->power_on);
+		ret = size;
+		goto exit;
+	}
+
+	core_data->set_mode.stowed = mode;
+	ts_info("Success to set stowed mode %lu\n", mode);
+
+	ret = size;
+exit:
+	mutex_unlock(&core_data->mode_lock);
+	return ret;
+}
+
+static ssize_t goodix_ts_stowed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct platform_device *pdev;
+	struct goodix_ts_core *core_data;
+
+	dev = MMI_DEV_TO_TS_DEV(dev);
+	GET_GOODIX_DATA(dev);
+
+	ts_info("Stowed state = %d.\n", core_data->set_mode.stowed);
+	return scnprintf(buf, PAGE_SIZE, "0x%02x", core_data->set_mode.stowed);
 }
 
 static int goodix_ts_mmi_refresh_rate(struct device *dev, int freq)
@@ -1089,6 +1159,7 @@ static int goodix_ts_mmi_pre_resume(struct device *dev) {
 	GET_GOODIX_DATA(dev);
 
 	atomic_set(&core_data->suspended, 0);
+	atomic_set(&core_data->post_suspended, 0);
 	if (core_data->gesture_enabled) {
 		core_data->hw_ops->irq_enable(core_data, false);
 		disable_irq_wake(core_data->irq);
@@ -1200,6 +1271,18 @@ static int goodix_ts_mmi_post_resume(struct device *dev) {
 		}
 	}
 #endif
+
+	if (core_data->board_data.stowed_mode_ctrl) {
+		core_data->set_mode.stowed = 0;
+	}
+
+#ifdef GTP_PEN_NOTIFIER
+	if (core_data->gtp_pen_detect_flag) {
+		ret = goodix_ts_send_cmd(core_data, 0x32, 5, 0x1, 0x00);
+		if (ret < 0)
+			ts_err("failed to send passive pen mode cmd");
+	}
+#endif
 	mutex_unlock(&core_data->mode_lock);
 #ifdef CONFIG_GTP_FOD
 	if(core_data->zerotap_data[0]) {
@@ -1207,6 +1290,12 @@ static int goodix_ts_mmi_post_resume(struct device *dev) {
 	}
 	core_data->zerotap_data[0] = 0;
 #endif
+
+#ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
+	atomic_set(&core_data->allow_capture, 1);
+	ts_info("Resume end, enable ghost log capture");
+#endif
+
 	return 0;
 }
 
@@ -1219,6 +1308,20 @@ static int goodix_ts_mmi_pre_suspend(struct device *dev) {
 
 	ts_info("Suspend start");
 	atomic_set(&core_data->suspended, 1);
+
+#ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
+	//disable/stop ghost log capture
+	atomic_set(&core_data->allow_capture, 0);
+	ts_info("Suspend start, disable ghost log capture");
+
+	mutex_lock(&core_data->frame_log_lock);
+	if(atomic_read(&core_data->trigger_enable) == 1) {
+		atomic_set(&core_data->trigger_enable, 0);
+		core_data->data_valid = 0;
+		frame_log_capture_stop(core_data);
+	}
+	mutex_unlock(&core_data->frame_log_lock);
+#endif
 
 #ifdef GOODIX_PALM_SENSOR_EN
 	if (core_data->set_mode.palm_detection) {
@@ -1247,12 +1350,26 @@ static int goodix_ts_mmi_pre_suspend(struct device *dev) {
 
 
 static int goodix_ts_mmi_post_suspend(struct device *dev) {
+	int ret = 0;
 	struct goodix_ts_core *core_data;
 	struct platform_device *pdev;
 
 	GET_GOODIX_DATA(dev);
 
 	goodix_ts_release_connects(core_data);
+
+	atomic_set(&core_data->post_suspended, 1);
+	mutex_lock(&core_data->mode_lock);
+	if (core_data->board_data.stowed_mode_ctrl && core_data->get_mode.stowed) {
+		ret = goodix_ts_send_cmd(core_data, ENTER_STOWED_MODE_CMD, 5, core_data->get_mode.stowed, 0x00);
+		if (ret < 0) {
+			ts_err("Failed to set stowed mode %d\n", core_data->get_mode.stowed);
+		} else {
+			core_data->set_mode.stowed = core_data->get_mode.stowed;
+			ts_info("Enable stowed mode %d success.\n", core_data->set_mode.stowed);
+		}
+	}
+	mutex_unlock(&core_data->mode_lock);
 
 	ts_info("Suspend end");
 	return 0;

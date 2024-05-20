@@ -10,7 +10,7 @@ ifeq ($(DRM_PANEL_NOTIFICATIONS),true)
 endif
 
 ifeq ($(TOUCHSCREEN_GOODIX_BRL_SPI),true)
-ifeq ($(call is-board-platform-in-list,taro kalama parrot), true)
+ifeq ($(call is-board-platform-in-list,taro kalama parrot crow pineapple), true)
 	KBUILD_OPTIONS += CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI=y
 else
 	KERNEL_CFLAGS += CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI=y
@@ -42,7 +42,11 @@ ifeq ($(TOUCHSCREEN_LAST_TIME),true)
 endif
 
 ifeq ($(GTP_ENABLE_DDA_STYLUS),true)
+ifeq ($(MOTO_DDA_PASSIVE_STYLUS),true)
+	KBUILD_OPTIONS += CONFIG_MOTO_DDA_PASSIVE_STYLUS=y
+else
 	KBUILD_OPTIONS += CONFIG_GTP_DDA_STYLUS=y
+endif
 endif
 
 ifeq ($(BOARD_USES_DOUBLE_TAP_CTRL),true)
@@ -57,6 +61,10 @@ ifeq ($(ENABLE_TP_GHOST_LOG_CAPTURE),true)
 	KBUILD_OPTIONS += CONFIG_GTP_GHOST_LOG_CAPTURE=y
 endif
 
+ifeq ($(ENABLE_GTP_PALM_CANCEL),true)
+	KBUILD_OPTIONS += CONFIG_ENABLE_GTP_PALM_CANCEL=y
+endif
+
 include $(CLEAR_VARS)
 LOCAL_MODULE := goodix_brl_mmi.ko
 LOCAL_MODULE_TAGS := optional
@@ -66,5 +74,11 @@ ifneq ($(findstring touchscreen_mmi.ko,$(BOARD_VENDOR_KERNEL_MODULES)),)
 	KBUILD_OPTIONS += CONFIG_INPUT_TOUCHSCREEN_MMI=y
 	LOCAL_ADDITIONAL_DEPENDENCIES += $(KERNEL_MODULES_OUT)/touchscreen_mmi.ko
 endif
+
+ifneq ($(BOARD_USES_PEN_NOTIFIER),)
+	KBUILD_OPTIONS += CONFIG_INPUT_GTP_PASSIVE_PEN_NOTIFIER=y
+	LOCAL_ADDITIONAL_DEPENDENCIES += $(KERNEL_MODULES_OUT)/hall_pen.ko
+endif
+
 KBUILD_OPTIONS_GKI += GKI_OBJ_MODULE_DIR=gki
 include $(DLKM_DIR)/AndroidKernelModule.mk

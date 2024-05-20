@@ -16,6 +16,7 @@
 #include <linux/completion.h>
 #include <linux/of_irq.h>
 #include <linux/clk.h>
+#include <linux/version.h>
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
@@ -29,6 +30,10 @@
 #endif
 #ifdef CONFIG_GTP_LAST_TIME
 #include <linux/ktime.h>
+#endif
+
+#ifdef GTP_PEN_NOTIFIER
+#include <linux/pen_detection_notify.h>
 #endif
 
 #define GOODIX_CORE_DRIVER_NAME			"goodix_ts"
@@ -67,6 +72,10 @@
 #define GOODIX_GESTURE_FOD_UP			0x55
 #define GOODIX_GESTURE_UNDER_WATER		0x20
 #define GOODIX_GESTURE_PALM_DETECTION		0x40
+
+#ifndef fallthrough
+#define fallthrough do {} while (0) /* fallthrough */
+#endif
 
 enum GOODIX_GESTURE_TYP {
 	GESTURE_SINGLE_TAP = (1 << 0),
@@ -307,6 +316,7 @@ struct goodix_ts_board_data {
 	bool sample_ctrl;
 	bool report_rate_ctrl;
 	bool edge_ctrl;
+	bool stowed_mode_ctrl;
 	bool gesture_wait_pm;
 };
 
@@ -373,6 +383,9 @@ enum touch_point_status {
 /* coordinate package */
 struct goodix_ts_coords {
 	int status; /* NONE, RELEASE, TOUCH */
+#ifdef CONFIG_MOTO_DDA_PASSIVESTYLUS
+	int plam_status;
+#endif
 	unsigned int x, y, w, p;
 };
 
@@ -387,6 +400,7 @@ struct goodix_pen_coords {
 /* touch event data */
 struct goodix_touch_data {
 	int touch_num;
+	bool palm_on;
 	struct goodix_ts_coords coords[GOODIX_MAX_TOUCH];
 };
 
@@ -497,6 +511,7 @@ struct goodix_mode_info {
 #ifdef GOODIX_PALM_SENSOR_EN
 	int palm_detection;
 #endif
+	int stowed;
 };
 
 struct goodix_ts_core {
@@ -534,6 +549,7 @@ struct goodix_ts_core {
 
 	atomic_t irq_enabled;
 	atomic_t suspended;
+	atomic_t post_suspended;
 	/* when this flag is true, driver should not clean the sync flag */
 	bool tools_ctrl_sync;
 
@@ -575,7 +591,15 @@ struct goodix_ts_core {
 
 #ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
 	atomic_t trigger_enable;
-	u8 trigger_buf[2000];
+	u8 trigger_buf[2500];
+	atomic_t allow_capture;
+	bool data_valid;
+	struct mutex frame_log_lock;
+#endif
+
+#ifdef GTP_PEN_NOTIFIER
+	int gtp_pen_detect_flag;
+	struct notifier_block pen_notif;
 #endif
 };
 
@@ -746,10 +770,11 @@ void goodix_dda_process_pen_report(struct goodix_pen_data *pen_data);
 
 #ifdef CONFIG_GTP_GHOST_LOG_CAPTURE
 int frame_log_capture_start(struct goodix_ts_core *cd);
+int frame_log_capture_stop(struct goodix_ts_core *cd);
 void put_fifo_with_discard(char *log_buf, int len);
 void clear_kfifo(void);
-int goodix_log_capture_register_misc(void);
-int goodix_log_capture_unregister_misc(void);
+int goodix_log_capture_register_misc(struct goodix_ts_core *cd);
+int goodix_log_capture_unregister_misc(struct goodix_ts_core *cd);
 #endif
 
 #endif

@@ -179,6 +179,13 @@ enum pmic_type {
 #define USBIN_ICL_OVERRIDE_BIT			BIT(0)
 #define HVDCP_PULSE_COUNT_MAX_REG		(USBIN_BASE + 0x5B)
 #define HVDCP_PULSE_COUNT_MAX_QC2_MASK		GENMASK(7, 6)
+enum {
+	HVDCP_PULSE_COUNT_MAX_QC2_5V = 0,
+	HVDCP_PULSE_COUNT_MAX_QC2_9V = 0x40,
+	HVDCP_PULSE_COUNT_MAX_QC2_12V = 0x80,
+	HVDCP_PULSE_COUNT_MAX_QC2_INVALID = 0xC0
+};
+
 #define HVDCP_PULSE_COUNT_MAX_QC3_MASK		GENMASK(5, 0)
 #define USBIN_ICL_OPTIONS_REG			(USBIN_BASE + 0x66)
 #define USBIN_MODE_CHG_BIT			BIT(0)
@@ -272,6 +279,23 @@ enum {
 	CHG_BC1P2_QC_2P0,
 	CHG_BC1P2_QC_3P0,
 	CHG_BC1P2_UNKNOWN,
+};
+
+typedef enum {
+	CHARGER_FFC_STATE_INITIAL,
+	CHARGER_FFC_STATE_PROBING,
+	CHARGER_FFC_STATE_STANDBY,
+	CHARGER_FFC_STATE_GOREADY,
+	CHARGER_FFC_STATE_RUNNING,
+	CHARGER_FFC_STATE_AVGEXIT,
+	CHARGER_FFC_STATE_FFCDONE,
+	CHARGER_FFC_STATE_INVALID,
+} CHARGER_FFC_STATE_T;
+
+enum {
+	CHARGER_FLAG_INVALID,
+	CHARGER_FLAG_FFC,
+	CHARGER_FLAG_NON_FFC,
 };
 
 static char *charge_rate[] = {
@@ -474,15 +498,34 @@ struct smb_mmi_charger {
 	int			hvdcp_power_max;
 	int			inc_hvdcp_cnt;
 	int			hb_startup_cnt;
-	bool		ocp_flag;
+	bool			ocp_flag;
+	bool			hvdcp2_force_9v;
 
 	/* none ffc paramter */
 	int			noffc_chg_iterm;
 	int			noffc_chg_iterm_45c;
 	int			noffc_qg_iterm;
+	int			noffc_qg_iterm_45c;
 	int			noffc_max_fv;
 	int			pd_pps_active;
 	int			real_charger_type;
+
+	/*DCP FFC feature*/
+	CHARGER_FFC_STATE_T	ffc_state;
+	int			ffc_entry_threshold;
+	int			ffc_exit_threshold;
+	int			ffc_uisoc_threshold;
+	long			ffc_ibat_windowsum;
+	long			ffc_ibat_count;
+	int			ffc_ibat_windowsize;
+	int			ffc_iavg;
+	unsigned long		ffc_iavg_update_timestamp;
+
+	/* DCP FFC */
+	bool			ffc_stop_chg;
+	bool			enable_dcp_ffc;
+
+	bool			enable_fcc_large_qg_iterm;
 };
 
 #define CHGR_FAST_CHARGE_CURRENT_CFG_REG	(CHGR_BASE + 0x61)
@@ -1623,6 +1666,28 @@ static DEVICE_ATTR(force_chg_itrick, 0664,
 		   force_chg_itrick_show,
 		   force_chg_itrick_store);
 
+static ssize_t chg_watt_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	int power_watt = -ENODEV;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct smb_mmi_charger *mmi_chip = platform_get_drvdata(pdev);
+
+	if (mmi_chip) {
+		power_watt = mmi_chip->power_watt / 1000;
+		mmi_info(mmi_chip, "power_watt %dW\n", power_watt);
+	} else {
+		pr_err("chip not valid\n");
+	}
+
+	return scnprintf(buf, CHG_SHOW_MAX_SIZE, "%d\n", power_watt);
+}
+
+static DEVICE_ATTR(chg_watt, 0444,
+		chg_watt_show,
+		NULL);
+
 enum {
 	MMI_FACTORY_MODE,
 	MMI_FACTORY_BUILD,
@@ -2149,6 +2214,7 @@ static int mmi_increase_vbus_power(struct smb_mmi_charger *chg, int cur_mv)
 
 		chg->inc_hvdcp_cnt = HVDCP_PULSE_COUNT_MAX;
 		vote(chg->chg_dis_votable, MMI_HB_VOTER, true, 0);
+		msleep(100);
 
 		while (cur_mv < HVDCP_VOLTAGE_NOM && pulse_cnt < chg->inc_hvdcp_cnt) {
 			val.intval = QTI_POWER_SUPPLY_DP_DM_DP_PULSE;
@@ -2216,7 +2282,6 @@ static ssize_t force_hvdcp_power_max_store(struct device *dev,
 		mmi_chip->hvdcp_power_max = power;
 
 		r = smblib_masked_write_mmi(mmi_chip, HVDCP_PULSE_COUNT_MAX_REG,
-					    HVDCP_PULSE_COUNT_MAX_QC2_MASK |
 					    HVDCP_PULSE_COUNT_MAX_QC3_MASK,
 					    HVDCP_PULSE_COUNT_MAX);
 		if (r < 0) {
@@ -2515,7 +2580,16 @@ static void mmi_chrg_usb_vin_config(struct smb_mmi_charger *chg, int cur_mv)
 		return;
 	}
 	chg->real_charger_type = val;
-	if (val != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
+	if (val == QTI_POWER_SUPPLY_TYPE_USB_HVDCP && chg->hvdcp2_force_9v) {
+		val = QTI_POWER_SUPPLY_DP_DM_FORCE_9V;
+		rc = smb_mmi_write_iio_chan(chg, SMB5_DP_DM, val);
+		if (rc < 0) {
+			mmi_err(chg, "Couldn't set force HVDCP2 9V rc=%d\n", rc);
+		}
+		return;
+	}
+
+	if (chg->real_charger_type != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
 		return;
 
 	if (chg->hvdcp_power_max > CHARGER_POWER_15W) {
@@ -3245,31 +3319,63 @@ vote_now:
 	return sched_time;
 }
 
-static int mmi_get_ffc_fv(struct smb_mmi_charger *chip, int zone)
+static int mmi_set_qg_iterm(struct smb_mmi_charger *chip, int qg_iterm)
+{
+	int rc = 0;
+	int fcc = 0;
+	union power_supply_propval val;
+
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT, &val);
+	if (rc < 0) {
+		mmi_err(chip, "Couldn't get batt FCC, rc=%d\n", rc);
+		return rc;
+	}
+
+	fcc = val.intval / 1000;
+
+	if (chip->enable_fcc_large_qg_iterm && (qg_iterm > (fcc - 50)))
+		qg_iterm = fcc - 50;
+
+	rc = smb_mmi_write_iio_chan(chip,
+			SMB5_QG_BATT_FULL_CURRENT, qg_iterm);
+	if (rc < 0) {
+		mmi_err(chip, "Couldn't set batt full current, rc=%d\n", rc);
+	}
+
+	return rc;
+}
+
+static int mmi_get_ffc_fv(struct smb_mmi_charger *chip, int zone, bool force_ffc)
 {
        int rc;
        int ffc_max_fv;
 	struct mmi_sm_params *prm = &chip->sm_param[BASE_BATT];
 
        if (prm->ffc_zones == NULL || zone >= prm->num_temp_zones)
-               return 0;
+               return chip->base_fv_mv;
 
-	mmi_info(chip,"real_charger_type=%d, pd_pps_active=%d\n",chip->real_charger_type,
-		chip->pd_pps_active);
-	if ((chip->real_charger_type != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5) &&
-		(chip->pd_pps_active != QTI_POWER_SUPPLY_PD_PPS_ACTIVE) &&
+	if ((force_ffc == false) &&
 		(chip->noffc_chg_iterm != -EINVAL) &&
 		(chip->noffc_qg_iterm != -EINVAL) &&
 		(chip->noffc_max_fv != -EINVAL)) {
-		rc = smb_mmi_write_iio_chan(chip,
-			SMB5_QG_BATT_FULL_CURRENT, chip->noffc_qg_iterm);
-		if (rc < 0) {
-			mmi_err(chip, "Couldn't set batt full current, rc=%d\n", rc);
-		}
+
 		if ((zone == ZONE_35C_TO_45C) && (chip->noffc_chg_iterm_45c != -EINVAL)) {
 			prm->chrg_iterm = chip->noffc_chg_iterm_45c;
+
+			rc = mmi_set_qg_iterm(chip,
+				(chip->noffc_qg_iterm_45c != -EINVAL) ?
+				chip->noffc_qg_iterm_45c : chip->noffc_qg_iterm);
+			if (rc < 0) {
+				mmi_err(chip, "Couldn't set batt full current, rc=%d\n", rc);
+			}
 		} else {
 			prm->chrg_iterm = chip->noffc_chg_iterm;
+
+			rc = mmi_set_qg_iterm(chip, chip->noffc_qg_iterm);
+			if (rc < 0) {
+				mmi_err(chip, "Couldn't set batt full current, rc=%d\n", rc);
+			}
 		}
 		ffc_max_fv = chip->noffc_max_fv;
 		mmi_info(chip,"NONEFFC temp zone %d, fv %d mV, chg iterm %d mA, qg iterm %d mA\n",
@@ -3277,8 +3383,7 @@ static int mmi_get_ffc_fv(struct smb_mmi_charger *chip, int zone)
 		return ffc_max_fv;
 	}
 
-	rc = smb_mmi_write_iio_chan(chip,
-			SMB5_QG_BATT_FULL_CURRENT, prm->ffc_zones[zone].ffc_qg_iterm);
+	rc = mmi_set_qg_iterm(chip, prm->ffc_zones[zone].ffc_qg_iterm);
 	if (rc < 0) {
 		mmi_err(chip, "Couldn't set batt full current, rc=%d\n", rc);
 	}
@@ -3290,6 +3395,190 @@ static int mmi_get_ffc_fv(struct smb_mmi_charger *chip, int zone)
                  zone, ffc_max_fv, prm->chrg_iterm, prm->ffc_zones[zone].ffc_qg_iterm);
 
        return ffc_max_fv;
+}
+
+static void mmi_charger_ffc_init(struct smb_mmi_charger *chip)
+{
+	chip->ffc_state = CHARGER_FFC_STATE_INITIAL;
+	chip->ffc_ibat_windowsum = 0;
+	chip->ffc_ibat_count = 0;
+	chip->ffc_ibat_windowsize = 6;
+	chip->ffc_iavg = 0;
+	chip->ffc_iavg_update_timestamp = 0;
+
+	chip->ffc_stop_chg = false;
+	mmi_info(chip,"ffc initilaize...\n");
+}
+
+static int mmi_charger_check_ffc_status(struct smb_mmi_charger *chip, struct smb_mmi_chg_status *stat)
+{
+	bool loop = true;
+	unsigned long target_timestamp;
+	int batt_ma, batt_mv;
+	struct mmi_sm_params *prm = &chip->sm_param[BASE_BATT];
+	int max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, false);
+
+	batt_ma = stat->batt_ma * (-1);
+	batt_mv = stat->batt_mv;
+
+	do {
+
+		mmi_info(chip,"ffc_state:%d, charge stage:%d, uisoc:%d, chg_type:%d\n", chip->ffc_state, prm->pres_chrg_step, stat->batt_soc, chip->real_charger_type);
+		switch (chip->ffc_state) {
+			case CHARGER_FFC_STATE_INITIAL:
+				if (prm->pres_chrg_step == STEP_MAX) {
+
+					if (stat->batt_soc >= chip->ffc_uisoc_threshold) {
+						chip->ffc_state = CHARGER_FFC_STATE_PROBING;
+						pr_debug("uisoc is up to %d, ffc probing starts\n", chip->ffc_uisoc_threshold);
+					}
+				}
+
+				loop = false;
+			break;
+			case CHARGER_FFC_STATE_PROBING:
+				if (prm->pres_chrg_step == STEP_MAX || prm->pres_chrg_step == STEP_NORM) {
+					if (batt_ma < 0) {
+						mmi_info(chip,"still in discharging at:%d\n", batt_ma);
+						loop = false;
+						break;
+					}
+
+					if (batt_ma > chip->ffc_entry_threshold) {
+						mmi_info(chip,"charging current can bump up to entry threshold:%d\n", chip->ffc_entry_threshold);
+						chip->ffc_state = CHARGER_FFC_STATE_STANDBY;
+					}
+					else if (batt_ma == 0) {
+						mmi_info(chip,"charger doesnt support to bump high level current\n");
+						chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+					}
+					else {
+						mmi_info(chip,"current: %d not reach ffc entry threshold\n", batt_ma);
+						loop = false;
+					}
+				}
+				else {
+					chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+					mmi_info(chip,"invalid stage:%d, ffc session quit\n", prm->pres_chrg_step);
+				}
+			break;
+			case CHARGER_FFC_STATE_STANDBY:
+				if (prm->pres_chrg_step != STEP_MAX && prm->pres_chrg_step != STEP_NORM) {
+					mmi_info(chip,"invalid stage:%d in ffc_state:%d\n", prm->pres_chrg_step, chip->ffc_state);
+					chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+					break;
+				}
+
+				if (prm->pres_chrg_step == STEP_NORM && chip->ffc_iavg >= chip->ffc_entry_threshold) {
+					chip->ffc_state = CHARGER_FFC_STATE_GOREADY;
+					break;
+				}
+
+				target_timestamp = chip->ffc_iavg_update_timestamp + msecs_to_jiffies(10 * 1000);
+
+				if (time_is_before_eq_jiffies(target_timestamp) || chip->ffc_iavg_update_timestamp == 0) {
+					/* iavg update required */
+					if (batt_ma < 0) {
+						loop = false;
+						mmi_info(chip,"still in discharging at:%d\n", batt_ma);
+						break;
+					}
+
+					chip->ffc_iavg_update_timestamp = jiffies;
+					chip->ffc_ibat_count++;
+					chip->ffc_ibat_windowsum += batt_ma;
+					chip->ffc_iavg = chip->ffc_ibat_windowsum / chip->ffc_ibat_count;
+					mmi_info(chip,"iavg:%d, total:%ld, count:%ld\n", chip->ffc_iavg, chip->ffc_ibat_windowsum, chip->ffc_ibat_count);
+				}
+
+				loop = false;
+			break;
+			case CHARGER_FFC_STATE_GOREADY:
+				if (prm->pres_chrg_step != STEP_NORM) {
+					if (prm->pres_chrg_step == STEP_MAX) {
+						chip->ffc_state = CHARGER_FFC_STATE_STANDBY;
+					} else {
+						mmi_info(chip,"invalid stage:%d in ffc_state:%d, quit ffc session\n", prm->pres_chrg_step, chip->ffc_state);
+						chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+					}
+					break;
+				}
+				chip->ffc_ibat_count = 0;
+				chip->ffc_ibat_windowsum = 0;
+				chip->ffc_iavg = 0;
+				chip->ffc_iavg_update_timestamp = 0;
+				/* set target voltage as the ffc target */
+				max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, true);
+				chip->ffc_state = CHARGER_FFC_STATE_RUNNING;
+				loop = false;
+				mmi_info(chip,"target max_fv_mv:%d\n", max_fv_mv);
+			break;
+			case CHARGER_FFC_STATE_RUNNING:
+				if (prm->pres_chrg_step != STEP_NORM) {
+					if (prm->pres_chrg_step == STEP_MAX) {
+						chip->ffc_state = CHARGER_FFC_STATE_STANDBY;
+					} else {
+						mmi_info(chip,"invalid stage:%d in ffc_state:%d, quit ffc session\n", prm->pres_chrg_step, chip->ffc_state);
+						chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+					}
+					break;
+				}
+
+				if (batt_ma < 0) {
+					mmi_info(chip,"still in discharging at:%d, retry\n", batt_ma);
+					loop = false;
+					break;
+				}
+
+				max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, true);
+
+				/* float down offset 5mV to fit in more robust ffc state */
+				if (batt_mv < (max_fv_mv - 5)) {
+					chip->ffc_ibat_count++;
+					chip->ffc_ibat_windowsum += batt_ma;
+					loop = false;
+
+					if ((chip->ffc_ibat_count % chip->ffc_ibat_windowsize) == 0) {
+						chip->ffc_iavg = chip->ffc_ibat_windowsum / chip->ffc_ibat_count;
+						if (chip->ffc_iavg <= chip->ffc_exit_threshold) {
+							loop = true;
+							chip->ffc_state = CHARGER_FFC_STATE_AVGEXIT;
+						}
+						mmi_info(chip,"ffc_iavg:%d in ffc, max_fv_mv:%d, vbatt:%d\n", chip->ffc_iavg, max_fv_mv, batt_mv);
+					}
+				}
+				else {
+					mmi_info(chip,"ffc charging to target voltage:%d, quit ffc session \n", max_fv_mv);
+					chip->ffc_state = CHARGER_FFC_STATE_FFCDONE;
+					break;
+				}
+			break;
+			case CHARGER_FFC_STATE_AVGEXIT:
+				max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, false);
+				chip->ffc_ibat_count = 0;
+				chip->ffc_ibat_windowsum = 0;
+				chip->ffc_iavg = 0;
+				chip->ffc_stop_chg = true;
+
+				chip->ffc_state = CHARGER_FFC_STATE_INVALID;
+				loop = false;
+			break;
+			case CHARGER_FFC_STATE_FFCDONE:
+				max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, true);
+				mmi_info(chip,"ffc session done, max_fv_mv:%d\n", max_fv_mv);
+				loop = false;
+			break;
+			case CHARGER_FFC_STATE_INVALID:
+				max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, false);
+				if (chip->ffc_stop_chg && max_fv_mv >= batt_mv)
+					chip->ffc_stop_chg = false;
+				loop = false;
+			break;
+		}
+
+	} while (loop);
+
+	return max_fv_mv;
 }
 
 static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
@@ -3327,7 +3616,17 @@ static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
 		vote(chip->fv_votable,
 		     BATT_PROFILE_VOTER, false, 0);
 	}
-	max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone);
+
+	if (!chip->enable_dcp_ffc) {
+		mmi_info(chip,"real_charger_type=%d, pd_pps_active=%d\n",chip->real_charger_type,
+			chip->pd_pps_active);
+		if ((chip->real_charger_type != QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5) &&
+			(chip->pd_pps_active != QTI_POWER_SUPPLY_PD_PPS_ACTIVE))
+			max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, false);
+		else
+			max_fv_mv = mmi_get_ffc_fv(chip, prm->pres_temp_zone, true);
+	} else
+		max_fv_mv = mmi_charger_check_ffc_status(chip, stat);
        if (max_fv_mv == 0)
                max_fv_mv = chip->base_fv_mv;
 
@@ -3339,6 +3638,7 @@ static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
 
 	if (!stat->charger_present && !is_wls_online(chip)) {
 		prm->pres_chrg_step = STEP_NONE;
+		mmi_charger_ffc_init(chip);
 	} else if ((prm->pres_temp_zone == ZONE_HOT) ||
 		   (prm->pres_temp_zone == ZONE_COLD) ||
 		   (chip->charging_limit_modes == CHARGING_LIMIT_RUN)) {
@@ -3404,8 +3704,7 @@ static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
 	} else if (prm->pres_chrg_step == STEP_NORM) {
 		if (!zone->fcc_norm_ma)
 			prm->pres_chrg_step = STEP_FLOAT;
-		else if ((stat->batt_soc < 100) ||
-			 (stat->batt_mv + HYST_STEP_MV) < max_fv_mv) {
+		else if ((stat->batt_mv + HYST_STEP_MV/2) < max_fv_mv) {
 			prm->chrg_taper_cnt = 0;
 			prm->pres_chrg_step = STEP_NORM;
 		} else if (mmi_has_current_tapered(BASE_BATT, chip, prm, stat->batt_ma,
@@ -3413,8 +3712,7 @@ static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
 				prm->pres_chrg_step = STEP_FULL;
 		}
 	} else if (prm->pres_chrg_step == STEP_FULL) {
-		if ((stat->batt_soc <= 99) ||
-			stat->batt_mv < (max_fv_mv - HYST_STEP_MV * 2)) {
+		if (stat->batt_mv < (max_fv_mv - HYST_STEP_MV * 2)) {
 			prm->chrg_taper_cnt = 0;
 			prm->pres_chrg_step = STEP_NORM;
 		}
@@ -3483,6 +3781,15 @@ static void mmi_basic_charge_sm(struct smb_mmi_charger *chip,
 		vote(chip->dc_suspend_votable, MMI_HB_VOTER, true, 1);
 
 	vote(chip->fv_votable, MMI_HB_VOTER, true, target_fv * 1000);
+
+	if (chip->enable_dcp_ffc) {
+		if (target_fcc == -EINVAL)
+			mmi_charger_ffc_init(chip);
+
+		if (chip->ffc_stop_chg) {
+			target_fcc = -EINVAL;
+		}
+	}
 
 	vote(chip->chg_dis_votable, MMI_HB_VOTER,
 	     (target_fcc < 0), 0);
@@ -3608,9 +3915,12 @@ static int smb_mmi_get_chg_info(struct smb_mmi_charger *chip, struct smb_mmi_chg
 		else if (usb_type == POWER_SUPPLY_TYPE_USB_CDP)
 			power_watt = 7500;
 		else if (usb_type == POWER_SUPPLY_TYPE_USB_DCP)
-			power_watt = 1000;
+			power_watt = 10000;
 		else if (usb_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP)
-			power_watt = chip->hvdcp_power_max;
+			if (chip->hvdcp2_force_9v)
+				power_watt = 15000;
+			else
+				power_watt = 7500;
 		else if (usb_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3)
 			power_watt = chip->hvdcp_power_max;
 		else if (usb_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5)
@@ -4416,6 +4726,11 @@ static int parse_mmi_dt(struct smb_mmi_charger *chg)
 	if (rc)
 		chg->noffc_qg_iterm = -EINVAL;
 
+	rc = of_property_read_u32(node, "qcom,noffc-qg-iterm-45c",
+				  &chg->noffc_qg_iterm_45c);
+	if (rc)
+		chg->noffc_qg_iterm_45c = -EINVAL;
+
 	rc = of_property_read_u32(node, "qcom,noffc-max-fv",
 				  &chg->noffc_max_fv);
 	if (rc)
@@ -4451,6 +4766,27 @@ static int parse_mmi_dt(struct smb_mmi_charger *chg)
 				  &chg->inc_hvdcp_cnt);
 	if (rc)
 		chg->inc_hvdcp_cnt = HVDCP_PULSE_COUNT_MAX;
+
+	chg->hvdcp2_force_9v = of_property_read_bool(node, "mmi,hvdcp2-force-9v");
+
+	rc = of_property_read_u32(node, "mmi,ffc-entry-threshold",
+				  &chg->ffc_entry_threshold);
+	if (rc)
+		chg->ffc_entry_threshold = 2000;
+
+	rc = of_property_read_u32(node, "mmi,ffc-exit-threshold",
+				  &chg->ffc_exit_threshold);
+	if (rc)
+		chg->ffc_exit_threshold = 1800;
+
+	rc = of_property_read_u32(node, "mmi,ffc-uisoc-threshold",
+				  &chg->ffc_uisoc_threshold);
+	if (rc)
+		chg->ffc_uisoc_threshold = 70;
+
+	chg->enable_dcp_ffc = of_property_read_bool(node, "mmi,enable-dcp-ffc");
+
+	chg->enable_fcc_large_qg_iterm = of_property_read_bool(node, "mmi,enable-fcc-large-qg-iterm");
 
 	return rc;
 }
@@ -4886,6 +5222,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	chip->soc_cycles_start = EMPTY_CYCLES;
 	chip->last_reported_soc = -1;
 	chip->last_reported_status = -1;
+	mmi_charger_ffc_init(chip);
 	chip->qcom_psy = power_supply_get_by_name("qcom_battery");
 	if (chip->qcom_psy) {
 		chip->batt_psy = devm_power_supply_register(chip->dev,
@@ -4981,12 +5318,19 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	 */
 	if (chip->hvdcp_power_max) {
 		rc = smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
-					    HVDCP_PULSE_COUNT_MAX_QC2_MASK |
 					    HVDCP_PULSE_COUNT_MAX_QC3_MASK,
 					    chip->inc_hvdcp_cnt);
 		if (rc < 0)
-			mmi_err(chip, "Could not set HVDCP pulse count max\n");
+			mmi_err(chip, "Could not set HVDCP3 pulse count max\n");
 	}
+
+	rc = smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
+					    HVDCP_PULSE_COUNT_MAX_QC2_MASK,
+					    chip->hvdcp2_force_9v ?
+					    HVDCP_PULSE_COUNT_MAX_QC2_9V:
+					    HVDCP_PULSE_COUNT_MAX_QC2_5V);
+	if (rc < 0)
+		mmi_err(chip, "Could not set HVDCP2 pulse count max\n");
 
 	chip->factory_mode = mmi_factory_check(MMI_FACTORY_MODE);
 	chip->is_factory_image = mmi_factory_check(MMI_FACTORY_BUILD);
@@ -5048,6 +5392,12 @@ static int smb_mmi_probe(struct platform_device *pdev)
 				&dev_attr_force_pd_power_max);
 	if (rc)
 		mmi_err(chip, "Couldn't create force_pd_power_max\n");
+
+	rc = device_create_file(chip->dev,
+				&dev_attr_chg_watt);
+	if (rc) {
+		mmi_err(chip, "Couldn't create chg_watt\n");
+	}
 
 	/* Register the notifier for the psy updates*/
 	chip->mmi_psy_notifier.notifier_call = mmi_psy_notifier_call;

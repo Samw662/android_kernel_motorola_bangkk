@@ -56,6 +56,7 @@
 #include <linux/acpi.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/version.h>
 
 #include "sc760x_charger_mmi.h"
 
@@ -902,6 +903,7 @@ static int sc760x_charger_get_property(struct power_supply *psy,
 
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = sc760x_is_enabled_charging(sc);
+		break;
 
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = sc->sc760x_enable;
@@ -1327,14 +1329,13 @@ static bool sc760x_state_changed(struct sc760x_chip *sc,
 
 static void charger_monitor_work_func(struct work_struct *work)
 {
-	int ret = 0;
 	bool state_changed = false;
 	struct sc760x_state state;
 	struct sc760x_chip *sc = container_of(work,
 					struct sc760x_chip,
 					charge_monitor_work.work);
 
-	ret = sc760x_get_state(sc, &state);
+	sc760x_get_state(sc, &state);
 	state_changed = sc760x_state_changed(sc, &state);
 	mutex_lock(&sc->lock);
 	sc->state = state;
@@ -1475,7 +1476,7 @@ static int sc760x_charger_get_batt_info(void *data, struct mmi_battery_info *bat
 		chg->batt_info.batt_mv = val.intval / 1000;
 	rc = power_supply_get_property(chg->fg_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &val);
 	if (!rc)
-		chg->batt_info.batt_ma = val.intval / 1000;
+		chg->batt_info.batt_ma = val.intval / 1000 * chg->ichg_polority;
 	rc = power_supply_get_property(chg->fg_psy, POWER_SUPPLY_PROP_CAPACITY, &val);
 	if (!rc)
 		chg->batt_info.batt_soc = val.intval;
@@ -1516,22 +1517,23 @@ static int sc760x_charger_get_batt_info(void *data, struct mmi_battery_info *bat
 
 static int sc760x_charger_get_chg_info(void *data, struct mmi_charger_info *chg_info)
 {
-	int ret = 0, work_mode = 0;
+	int work_mode = 0;
 	struct sc760x_mmi_charger *chg = data;
 	struct sc760x_state state = chg->sc->state;
 
-	ret = sc760x_get_state(chg->sc, &state);
+	sc760x_get_state(chg->sc, &state);
 	sc760x_get_work_mode(chg->sc, &work_mode);
 	chg->chg_info.chrg_mv = state.vbus_adc / 1000;
 	chg->chg_info.chrg_ma = state.ibus_adc / 1000;
 	chg->chg_info.chrg_type = get_charger_type(chg->sc);
+	chg->chg_info.vbus_present = state.online;
 	if (chg->chg_info.chrg_type == POWER_SUPPLY_USB_TYPE_UNKNOWN &&
 			is_wls_online(chg->sc)) {
 		chg->chg_info.chrg_type = 0xFF;
+		chg->chg_info.vbus_present = false;
 	}
 
 	chg->chg_info.chrg_present = state.online;
-	chg->chg_info.vbus_present = state.online;
 	chg->chg_info.chrg_pmax_mw = 0;
 
 	memcpy(chg_info, &chg->chg_info, sizeof(struct mmi_charger_info));
@@ -1882,6 +1884,12 @@ static int sc760x_mmi_charger_init(struct sc760x_mmi_charger *chg)
 	chg->chg_cfg.charging_disable = chg->sc->init_data.charger_disabled;
 	chg->chg_cfg.charger_suspend = chg->sc->init_data.charger_disabled;
 
+	if (of_property_read_bool(chg->sc->dev->of_node, "mmi,ichg-invert-polority"))
+		chg->ichg_polority = -1;
+	else
+		chg->ichg_polority = 1;
+	pr_info("ichg_polority %d\n", chg->ichg_polority);
+
 	driver = devm_kzalloc(chg->sc->dev,
 				sizeof(struct mmi_charger_driver),
 				GFP_KERNEL);
@@ -2061,8 +2069,11 @@ err_get_match:
     return ret;
 }
 
-
+#if (KERNEL_VERSION(6, 1, 25) > LINUX_VERSION_CODE)
 static int sc760x_charger_remove(struct i2c_client *client)
+#else
+static void sc760x_charger_remove(struct i2c_client *client)
+#endif
 {
     struct sc760x_chip *sc = i2c_get_clientdata(client);
     sc760x_remove_device_node(&(client->dev));
@@ -2076,7 +2087,10 @@ static int sc760x_charger_remove(struct i2c_client *client)
     power_supply_unregister(sc->charger_psy);
 
     mutex_destroy(&sc->lock);
+
+#if (KERNEL_VERSION(6, 1, 25) > LINUX_VERSION_CODE)
     return 0;
+#endif
 }
 
 #ifdef CONFIG_PM_SLEEP

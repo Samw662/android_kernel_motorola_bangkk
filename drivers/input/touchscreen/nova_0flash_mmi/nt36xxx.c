@@ -214,7 +214,12 @@ int nvt_mcu_pen_detect_set(uint8_t pen_detect);
 #ifndef CONFIG_INPUT_TOUCHSCREEN_MMI
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))) || defined(NVT_CONFIG_DRM_PANEL))
 #if defined(CONFIG_DRM)
+#ifdef NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+static void nvt_drm_notifier_callback(enum panel_event_notifier_tag tag,
+		 struct panel_event_notification *notification, void *client_data);
+#else
 static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data);
+#endif
 #ifdef LCM_FAST_LIGHTUP
 static struct work_struct ts_resume_work;
 static void nova_resume_work_func(struct work_struct *work);
@@ -256,12 +261,13 @@ const uint16_t touch_key_array[TOUCH_KEY_NUM] = {
 };
 #endif
 
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
 #if WAKEUP_GESTURE
 const uint16_t gesture_key_array[] = {
 	KEY_POWER,  //GESTURE_WORD_C
 	KEY_POWER,  //GESTURE_WORD_W
 	KEY_POWER,  //GESTURE_WORD_V
-	KEY_POWER,  //GESTURE_DOUBLE_CLICK, , GESTURE_SINGLE_CLICK
+	BTN_TRIGGER_HAPPY6,  //GESTURE_DOUBLE_CLICK
 	KEY_POWER,  //GESTURE_WORD_Z
 	KEY_POWER,  //GESTURE_WORD_M
 	KEY_POWER,  //GESTURE_WORD_O
@@ -271,7 +277,27 @@ const uint16_t gesture_key_array[] = {
 	KEY_POWER,  //GESTURE_SLIDE_DOWN
 	KEY_POWER,  //GESTURE_SLIDE_LEFT
 	KEY_POWER,  //GESTURE_SLIDE_RIGHT
+	BTN_TRIGGER_HAPPY3,  //GESTURE_SINGLE_CLICK
 };
+#endif
+#else
+#if WAKEUP_GESTURE
+const uint16_t gesture_key_array[] = {
+        KEY_POWER,  //GESTURE_WORD_C
+        KEY_POWER,  //GESTURE_WORD_W
+        KEY_POWER,  //GESTURE_WORD_V
+        KEY_POWER,  //GESTURE_DOUBLE_CLICK, , GESTURE_SINGLE_CLICK
+        KEY_POWER,  //GESTURE_WORD_Z
+        KEY_POWER,  //GESTURE_WORD_M
+        KEY_POWER,  //GESTURE_WORD_O
+        KEY_POWER,  //GESTURE_WORD_e
+        KEY_POWER,  //GESTURE_WORD_S
+        KEY_POWER,  //GESTURE_SLIDE_UP
+        KEY_POWER,  //GESTURE_SLIDE_DOWN
+        KEY_POWER,  //GESTURE_SLIDE_LEFT
+        KEY_POWER,  //GESTURE_SLIDE_RIGHT
+};
+#endif
 #endif
 
 #ifdef CONFIG_MTK_SPI
@@ -804,8 +830,10 @@ info_retry:
 	ts->fw_ver = buf[1];
 	ts->x_num = buf[3];
 	ts->y_num = buf[4];
+#ifndef CONFIG_INPUT_HIGH_RESOLUTION_N
 	ts->abs_x_max = (uint16_t)((buf[5] << 8) | buf[6]);
 	ts->abs_y_max = (uint16_t)((buf[7] << 8) | buf[8]);
+#endif
 	ts->max_button_num = buf[11];
 	ts->fw_type = buf[14];
 	//---clear x_num, y_num if fw info is broken---
@@ -1153,11 +1181,18 @@ void nvt_ts_wakeup_gesture_report(uint8_t gesture_id, uint8_t *data)
 			NVT_DBG("Gesture : Word-V.\n");
 			keycode = gesture_key_array[2];
 			break;
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+                case GESTURE_DOUBLE_CLICK:
+                        NVT_DBG("Gesture : Double Click.\n");
+                        keycode = gesture_key_array[3];
+                        break;
+#else
 		case GESTURE_SINGLE_CLICK:
 		case GESTURE_DOUBLE_CLICK:
 			NVT_DBG("Gesture : Double Click.\n");
 			keycode = gesture_key_array[3];
 			break;
+#endif
 		case GESTURE_WORD_Z:
 			NVT_DBG("Gesture : Word-Z.\n");
 			keycode = gesture_key_array[4];
@@ -1194,6 +1229,12 @@ void nvt_ts_wakeup_gesture_report(uint8_t gesture_id, uint8_t *data)
 			NVT_DBG("Gesture : Slide RIGHT.\n");
 			keycode = gesture_key_array[12];
 			break;
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+                case GESTURE_SINGLE_CLICK:
+                        NVT_LOG("Gesture : Single Click.\n");
+                        keycode = gesture_key_array[13];
+                        break;
+#endif
 		default:
 			break;
 	}
@@ -1226,11 +1267,18 @@ void nvt_ts_wakeup_gesture_report(uint8_t gesture_id, uint8_t *data)
 			NVT_LOG("Gesture got but wakeable not set. Skip this gesture.");
 			return;
 		}
-		if (ts->report_gesture_key) {
+                if (ts->report_gesture_key) {
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+                        input_report_key(ts->sensor_pdata->input_sensor_dev, keycode, 1);
+                        input_sync(ts->sensor_pdata->input_sensor_dev);
+                        input_report_key(ts->sensor_pdata->input_sensor_dev, keycode, 0);
+                        input_sync(ts->sensor_pdata->input_sensor_dev);
+#else
 			input_report_key(ts->sensor_pdata->input_sensor_dev, KEY_F1, 1);
 			input_sync(ts->sensor_pdata->input_sensor_dev);
 			input_report_key(ts->sensor_pdata->input_sensor_dev, KEY_F1, 0);
 			input_sync(ts->sensor_pdata->input_sensor_dev);
+#endif
 			++report_cnt;
 		} else {
 			input_report_abs(ts->sensor_pdata->input_sensor_dev,
@@ -1353,6 +1401,15 @@ static int32_t nvt_parse_dt(struct device *dev)
 	int j;
 	const char *panel_supplier;
 #endif
+
+#endif
+
+
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        uint32_t value;
+        if (!of_property_read_u32(np, "novatek,supported_gesture_type", &value)){
+        ts->supported_gesture_type = (uint8_t)value;
+                }
 #endif
 
 #if NVT_TOUCH_SUPPORT_HW_RST
@@ -1716,6 +1773,8 @@ static int32_t nvt_ts_point_data_checksum(uint8_t *buf, uint8_t length)
 #define POINT_DATA_LEN 120
 #define MINOR_DATA_OFFSET 70
 #define ORIENT_DATA_OFFSET 110
+#elif defined CONFIG_INPUT_HIGH_RESOLUTION_N
+#define POINT_DATA_LEN 108
 #else
 #define POINT_DATA_LEN 65
 #endif
@@ -1852,13 +1911,27 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 			/* update interrupt timer */
 			irq_timer = jiffies;
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
+#ifdef CONFIG_INPUT_HIGH_RESOLUTION_N
+			input_x = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
+			input_y = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
+			if ((input_x < 0) || (input_y < 0))
+				continue;
+			if ((input_x > ts->abs_x_max) || (input_y > ts->abs_y_max))
+				continue;
+			input_major = (uint32_t)(point_data[position + 5]);
+			if (input_major == 0)
+				input_major = 1;
+#else
 			input_x = (uint32_t)(point_data[position + 1] << 4) + (uint32_t) (point_data[position + 3] >> 4);
 			input_y = (uint32_t)(point_data[position + 2] << 4) + (uint32_t) (point_data[position + 3] & 0x0F);
 			if ((input_x < 0) || (input_y < 0))
 				continue;
 			if ((input_x > ts->abs_x_max) || (input_y > ts->abs_y_max))
 				continue;
-
+			input_major = (uint32_t)(point_data[position + 4]);
+			if (input_major == 0)
+				input_major = 1;
+#endif /* CONFIG_INPUT_HIGH_RESOLUTION_N */
 #ifdef PALM_GESTURE_RANGE
 			if((point_data[position] & 0x07) == PALM_TOUCH) { //palm
 				input_minor = (uint32_t)(point_data[1 + MINOR_DATA_OFFSET + i]);
@@ -1868,13 +1941,15 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 				input_orient = (int8_t)(point_data[1 + ORIENT_DATA_OFFSET + i]);
 			}
 #endif
-			input_major = (uint32_t)(point_data[position + 4]);
-			if (input_major == 0)
-				input_major = 1;
+
 
 #ifdef PALM_GESTURE
 			if ((point_data[position] & 0x07) == PALM_TOUCH) { //palm
+#ifdef CONFIG_INPUT_HIGH_RESOLUTION_N
+				input_p = (uint32_t)(point_data[1 + 98 + i]);
+#else
 				input_p = (uint32_t)(point_data[position + 5]);
+#endif
 				if(input_p == 255)
 					input_p = PALM_HANG;
 				else if (input_p == 254)
@@ -1888,6 +1963,9 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 			} else
 #endif
 			{
+#ifdef CONFIG_INPUT_HIGH_RESOLUTION_N
+				input_p = (uint32_t)(point_data[position + 98 + i]);
+#else
 				if (i < 2) {
 					input_p = (uint32_t)(point_data[position + 5]) + (uint32_t)(point_data[i + 63] << 8);
 					if (input_p > TOUCH_FORCE_NUM)
@@ -1895,6 +1973,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 				} else {
 					input_p = (uint32_t)(point_data[position + 5]);
 				}
+#endif
 			}
 			if (input_p == 0)
 				input_p = 1;
@@ -2136,6 +2215,9 @@ out:
 static int nvt_sensor_set_enable(struct sensors_classdev *sensors_cdev,
 		unsigned int enable)
 {
+#ifdef NVT_WAKEUP_GESTURE_CTRL
+	NVT_LOG("wakeup gesture ctrl, do nothing");
+#else
 	NVT_LOG("Gesture set enable %d!", enable);
 	mutex_lock(&ts->state_mutex);
 	if (enable == 1) {
@@ -2146,6 +2228,7 @@ static int nvt_sensor_set_enable(struct sensors_classdev *sensors_cdev,
 		NVT_LOG("unknown enable symbol\n");
 	}
 	mutex_unlock(&ts->state_mutex);
+#endif
 	return 0;
 }
 
@@ -2170,6 +2253,11 @@ static int nvt_sensor_init(struct nvt_ts_data *data)
 	}
 	data->sensor_pdata = sensor_pdata;
 
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        __set_bit(EV_KEY, sensor_input_dev->evbit);
+        __set_bit(BTN_TRIGGER_HAPPY3, sensor_input_dev->keybit);
+        __set_bit(BTN_TRIGGER_HAPPY6, sensor_input_dev->keybit);
+#else
 	if (data->report_gesture_key) {
 		__set_bit(EV_KEY, sensor_input_dev->evbit);
 		__set_bit(KEY_F1, sensor_input_dev->keybit);
@@ -2178,6 +2266,7 @@ static int nvt_sensor_init(struct nvt_ts_data *data)
 		input_set_abs_params(sensor_input_dev, ABS_DISTANCE,
 				0, REPORT_MAX_COUNT, 0, 0);
 	}
+#endif
 	__set_bit(EV_SYN, sensor_input_dev->evbit);
 
 	sensor_input_dev->name = "double-tap";
@@ -2596,6 +2685,141 @@ static ssize_t timestamp_show(struct device *dev,
 }
 #endif
 
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+#ifdef NVT_WAKEUP_GESTURE_CTRL
+static void nvt_gesture_state_switch(void)
+{
+	if (ts->s_tap_flag || ts->d_tap_flag) {
+		//gesture enable
+		if (!ts->should_enable_gesture) {
+			ts->should_enable_gesture = true;
+#ifdef NVT_SET_TOUCH_STATE
+			touch_set_state(TOUCH_LOW_POWER_STATE, TOUCH_PANEL_IDX_PRIMARY);
+#endif
+			NVT_LOG("gesture switch to enable");
+		}
+	} else {
+		//gesture disable
+		if (ts->should_enable_gesture) {
+			ts->should_enable_gesture = false;
+#ifdef NVT_SET_TOUCH_STATE
+			touch_set_state(TOUCH_DEEP_SLEEP_STATE, TOUCH_PANEL_IDX_PRIMARY);
+#endif
+			NVT_LOG("gesture switch to disable");
+		}
+	}
+}
+#endif
+static ssize_t gesture_show(struct device *dev,
+                struct device_attribute *attr, char *buf)
+{
+        struct nvt_ts_data *nvt_data = dev_get_drvdata(dev);
+        return scnprintf(buf, PAGE_SIZE, "%02x\n", nvt_data->supported_gesture_type);
+}
+
+static ssize_t gesture_store(struct device *dev,
+                                             struct device_attribute *attr,
+                                             const char *buf, size_t count)
+{
+
+	unsigned int value = 0;
+        int err = 0;
+        //struct nvt_ts_data *nvt_data = dev_get_drvdata(dev);
+
+        err = sscanf(buf, "%d", &value);
+        if (err < 0) {
+                NVT_LOG("error: Failed to convert value");
+                return -EINVAL;
+        }
+
+        switch (value) {
+                case 0x10:
+                        nvt_cmd_ext_store(0x7B,0x01);
+                        NVT_LOG("zero tap disable...");
+                        ts->s_tap_flag = false;
+                        ts->d_tap_flag = false;
+                        break;
+		case 0x11:
+			break;
+		case 0x20:
+			NVT_LOG("single tap disable...");
+			ts->s_tap_flag = false;
+			break;
+                case 0x21:
+			nvt_cmd_ext_store(0x7B,0x02);
+			NVT_LOG("single tap enable...");
+			ts->s_tap_flag = true;
+			break;
+		case 0x30:
+			NVT_LOG("double tap disable...");
+			ts->d_tap_flag = false;
+			break;
+		case 0x31:
+                        nvt_cmd_ext_store(0x7B,0x04);
+                        NVT_LOG("double tap enable...");
+                        ts->d_tap_flag = true;
+                        break;
+                default:
+                        NVT_LOG("unsupport gesture mode type");
+        }
+#ifdef NVT_WAKEUP_GESTURE_CTRL
+	nvt_gesture_state_switch();
+#endif
+
+        return count;
+
+}
+
+#endif
+
+#if defined(NVT_SENSOR_EN) && defined(NOVA_STOWED_MODE_EN)
+static ssize_t stowed_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long mode = 0;
+
+	ret = kstrtoul(buf, 0, &mode);
+	if (ret < 0) {
+		NVT_LOG("Failed to convert value.\n");
+		return -EINVAL;
+	}
+	ts->get_stowed = mode;
+	if (ts->set_stowed == mode) {
+		NVT_LOG("The value = %lu is same, so not to write", mode);
+		ret = size;
+		return ret;
+	}
+
+        mutex_lock(&ts->lock);
+	if (!ts->bTouchIsAwake && ts->should_enable_gesture) {
+		if (mode) {
+			nvt_cmd_ext_store(NVT_STOWED_MODE_CMD, NVT_STOWED_MODE_EN);
+		} else {
+			nvt_cmd_ext_store(NVT_STOWED_MODE_CMD, NVT_STOWED_MODE_DIS);
+		}
+	} else {
+		NVT_LOG("Skip stowed mode setting suspended:%d,should_enable_gesture:%d", ts->bTouchIsAwake,ts->should_enable_gesture);
+		ret = size;
+                mutex_unlock(&ts->lock);
+		return ret;
+	}
+
+	ts->set_stowed = ts->get_stowed ;
+	ret = size;
+	NVT_LOG("Success to set stowed mode %lu\n", mode);
+        mutex_unlock(&ts->lock);
+	return ret;
+}
+
+static ssize_t stowed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	NVT_LOG("Stowed state = %d.\n", ts->set_stowed);
+	return scnprintf(buf, PAGE_SIZE, "0x%02x", ts->get_stowed);
+}
+#endif
+
 static struct device_attribute touchscreen_attributes[] = {
 	__ATTR_RO(path),
 	__ATTR_RO(vendor),
@@ -2603,6 +2827,13 @@ static struct device_attribute touchscreen_attributes[] = {
 #ifdef NVT_TOUCH_LAST_TIME
 	__ATTR_RO(timestamp),
 #endif
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        __ATTR_RW(gesture),
+#endif
+#if defined(NVT_SENSOR_EN) && defined(NOVA_STOWED_MODE_EN)
+	__ATTR_RW(stowed),
+#endif
+
 #ifdef PALM_GESTURE
 	__ATTR(palm_settings, S_IRUGO | S_IWUSR | S_IWGRP, nvt_palm_settings_show, nvt_palm_settings_store),
 #endif
@@ -3148,6 +3379,18 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #ifndef CONFIG_INPUT_TOUCHSCREEN_MMI
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))) || defined(NVT_CONFIG_DRM_PANEL))
 #if defined(CONFIG_DRM)
+#ifdef  NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+	if (active_panel){
+		ts->notifier_cookie = panel_event_notifier_register(PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
+			&nvt_drm_notifier_callback, ts);
+	}
+	if (!ts->notifier_cookie) {
+		NVT_ERR("Failed to register for panel events\n");
+		goto err_register_drm_notif_failed;
+	}
+	NVT_LOG("registered for panel notifications panel\n");
+#else
 	ts->drm_notif.notifier_call = nvt_drm_notifier_callback;
 	if (active_panel &&
 		drm_panel_notifier_register(active_panel,
@@ -3155,6 +3398,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		NVT_LOG("register notifier failed!\n");
 		goto err_register_drm_notif_failed;
 	}
+#endif
 #endif
 #else //vension code < 5.4.0
 #if defined(CONFIG_FB)
@@ -3217,12 +3461,18 @@ err_create_touchscreen_class_failed:
 #if defined(CONFIG_INPUT_TOUCHSCREEN_MMI)
 	nvt_mmi_init(ts, false);
 #endif
+
 #ifndef CONFIG_INPUT_TOUCHSCREEN_MMI
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))) || defined(NVT_CONFIG_DRM_PANEL))
 #if defined(CONFIG_DRM)
 	if (active_panel) {
+#ifdef NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+            if (ts->notifier_cookie)
+                panel_event_notifier_unregister(ts->notifier_cookie);
+#else
 		if (drm_panel_notifier_unregister(active_panel, &ts->drm_notif))
 			NVT_ERR("Error occurred while unregistering drm_notifier.\n");
+#endif
 	}
 err_register_drm_notif_failed:
 #endif
@@ -3360,8 +3610,13 @@ static int32_t nvt_ts_remove(struct spi_device *client)
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))) || defined(NVT_CONFIG_DRM_PANEL))
 #if defined(CONFIG_DRM)
 	if (active_panel) {
+#ifdef NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+            if (ts->notifier_cookie)
+                panel_event_notifier_unregister(ts->notifier_cookie);
+#else
 		drm_panel_notifier_unregister(active_panel, &ts->drm_notif);
 		NVT_ERR("Error occurred while unregistering drm_notifier.\n");
+#endif
 	}
 #endif
 #else //vension code < 5.4.0
@@ -3467,8 +3722,13 @@ static void nvt_ts_shutdown(struct spi_device *client)
 #if (((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))) || defined(NVT_CONFIG_DRM_PANEL))
 #if defined(CONFIG_DRM)
 	if (active_panel) {
+#ifdef NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+            if (ts->notifier_cookie)
+                panel_event_notifier_unregister(ts->notifier_cookie);
+#else
 		drm_panel_notifier_unregister(active_panel, &ts->drm_notif);
 		NVT_ERR("Error occurred while unregistering drm_notifier.\n");
+#endif
 	}
 #endif
 #else //vension code < 5.4.0
@@ -3611,6 +3871,14 @@ int32_t nvt_ts_suspend(struct device *dev)
 
 	ts->bTouchIsAwake = 0;
 
+#if defined(NVT_SENSOR_EN) && defined(NOVA_STOWED_MODE_EN)
+	if (ts->should_enable_gesture && ts->get_stowed && (!ts->bTouchIsAwake)) {
+                nvt_cmd_ext_store(NVT_STOWED_MODE_CMD, NVT_STOWED_MODE_EN);
+		NVT_LOG("Enable stowed mode suspend\n");
+		ts->set_stowed = ts->get_stowed;
+	}
+#endif
+
 #if WAKEUP_GESTURE
 #ifdef NVT_SENSOR_EN
 	if (ts->should_enable_gesture) {
@@ -3641,6 +3909,8 @@ int32_t nvt_ts_suspend(struct device *dev)
 	buf[1] = 0x11;
 	CTP_SPI_WRITE(ts->client, buf, 2);
 #endif // WAKEUP_GESTURE
+
+
 
 	mutex_unlock(&ts->lock);
 
@@ -3743,6 +4013,9 @@ int32_t nvt_ts_resume(struct device *dev)
 		nvt_cmd_write(ts->rotate_cmd, 0, 0, 1);
 	}
 #endif
+#if defined(NVT_SENSOR_EN) && defined(NOVA_STOWED_MODE_EN)
+		ts->set_stowed = 0;
+#endif
 
 	NVT_LOG("end\n");
 
@@ -3763,7 +4036,86 @@ static void nova_resume_work_func(struct work_struct *work)
 	nvt_ts_resume(&ts->client->dev);
 }
 #endif //end LCM_FAST_LIGHTUP
+#ifdef  NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+static void nvt_drm_notifier_callback(enum panel_event_notifier_tag tag,
+		 struct panel_event_notification *notification, void *client_data)
+{
+	if (!notification) {
+		pr_err("Invalid notification\n");
+		return;
+	}
 
+	NVT_LOG("Notification type:%d, early_trigger:%d",
+			notification->notif_type,
+			notification->notif_data.early_trigger);
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		if (!notification->notif_data.early_trigger) {
+#ifdef LCM_FAST_LIGHTUP
+			if (nvt_fwu_wq) {
+				queue_work(nvt_fwu_wq, &ts_resume_work);
+				NVT_LOG("LCM_FAST_LIGHTUP, queue_work\n");
+			} else {
+				NVT_LOG("nvt_fwu_wq null");
+				nvt_ts_resume(&ts->client->dev);
+			}
+#else
+			nvt_ts_resume(&ts->client->dev);
+#endif //LCM_FAST_LIGHTUP
+		}
+
+		break;
+
+	case DRM_PANEL_EVENT_BLANK:
+		if (notification->notif_data.early_trigger) {
+			NVT_LOG("event=DRM_PANEL_EVENT_BLANK");
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+
+      if((ts->s_tap_flag == true)&&(ts->d_tap_flag == false)){
+        nvt_cmd_ext_store(0x7B,0x02);
+        }
+        else if((ts->s_tap_flag == false)&&(ts->d_tap_flag == true)){
+        nvt_cmd_ext_store(0x7B,0x04);
+        }
+        else if((ts->s_tap_flag == true)&&(ts->d_tap_flag == true)){
+        nvt_cmd_ext_store(0x7B,0x03);
+	}
+
+	if (ts->s_tap_flag || ts->d_tap_flag){
+                         ts->should_enable_gesture = true;
+                }else{
+                         ts->should_enable_gesture = false;
+		}
+#endif
+			nvt_ts_suspend(&ts->client->dev);
+#if defined(NVT_SENSOR_EN) && (defined(NVT_SET_TOUCH_STATE) || defined(NVT_CONFIG_PANEL_NOTIFICATIONS))
+			if (ts->should_enable_gesture) {
+				NVT_LOG("double tap gesture suspend\n");
+				touch_set_state(TOUCH_LOW_POWER_STATE, TOUCH_PANEL_IDX_PRIMARY);
+			} else {
+				touch_set_state(TOUCH_DEEP_SLEEP_STATE, TOUCH_PANEL_IDX_PRIMARY);
+			}
+#endif
+		}
+		break;
+
+	case DRM_PANEL_EVENT_BLANK_LP:
+		NVT_LOG("received lp event\n");
+		break;
+
+	case DRM_PANEL_EVENT_FPS_CHANGE:
+		NVT_LOG("Received fps change old fps:%d new fps:%d\n",
+				notification->notif_data.old_fps,
+				notification->notif_data.new_fps);
+		break;
+
+	default:
+		NVT_LOG("notification serviced :%d\n",
+				notification->notif_type);
+		break;
+	}
+}
+#else
 static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
 {
 	struct msm_drm_notifier *evdata = data;
@@ -3786,6 +4138,24 @@ static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long 
 	if (event == MSM_DRM_EARLY_EVENT_BLANK) {
 		if (*blank == MSM_DRM_BLANK_POWERDOWN) {
 			NVT_LOG("event=%lu, *blank=%d\n", event, *blank);
+#ifdef NVT_WAKEUP_GESTURE_CTRL
+			if ((ts->s_tap_flag == true) && (ts->d_tap_flag == false)) {
+				nvt_cmd_ext_store(0x7B,0x02);
+                                NVT_LOG("Support single tap feature \n");
+			} else if ((ts->s_tap_flag == false) && (ts->d_tap_flag == true)) {
+				nvt_cmd_ext_store(0x7B,0x04);
+                                NVT_LOG("Support double tap feature \n");
+			} else if ((ts->s_tap_flag == true) && (ts->d_tap_flag == true)) {
+				nvt_cmd_ext_store(0x7B,0x03);
+                                NVT_LOG("Support single tap and double tap feature \n");
+			}
+
+			if (ts->s_tap_flag || ts->d_tap_flag) {
+				ts->should_enable_gesture = true;
+			} else {
+				ts->should_enable_gesture = false;
+			}
+#endif
 			nvt_ts_suspend(&ts->client->dev);
 #if defined(NVT_SENSOR_EN) && (defined(NVT_SET_TOUCH_STATE) || defined(NVT_CONFIG_PANEL_NOTIFICATIONS))
 			if (ts->should_enable_gesture) {
@@ -3816,6 +4186,8 @@ static int nvt_drm_notifier_callback(struct notifier_block *self, unsigned long 
 	return 0;
 }
 #endif
+#endif
+
 #else //vension code < 5.4.0
 #ifdef NVT_CONFIG_PANEL_NOTIFICATIONS
 static int nvt_panel_notifier_callback(struct notifier_block *self, unsigned long event, void *data)

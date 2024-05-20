@@ -266,7 +266,9 @@ static int cts_tcs_spi_xtrans(const struct cts_device *cts_dev, u8 *tx,
     int ret;
 
     memset(&xfer[0], 0, sizeof(struct spi_transfer));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     xfer[0].delay_usecs = 0;
+#endif
     xfer[0].speed_hz = cts_dev->pdata->spi_speed * 1000u;
     xfer[0].tx_buf = tx;
     xfer[0].rx_buf = NULL;
@@ -288,7 +290,9 @@ static int cts_tcs_spi_xtrans(const struct cts_device *cts_dev, u8 *tx,
     udelay(100);
 
     memset(&xfer[1], 0, sizeof(struct spi_transfer));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     xfer[1].delay_usecs = 0;
+#endif
     xfer[1].speed_hz = cts_dev->pdata->spi_speed * 1000u;
     xfer[1].tx_buf = NULL;
     xfer[1].rx_buf = rx;
@@ -338,7 +342,9 @@ static int cts_tcs_spi_xtrans_1_cs(const struct cts_device *cts_dev, u8 *tx,
     int ret;
 
     memset(&xfer[0], 0, sizeof(struct spi_transfer));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
     xfer[0].delay_usecs = 0;
+#endif
     xfer[0].speed_hz = cts_dev->pdata->spi_speed * 1000u;
     xfer[0].tx_buf = tx;
     xfer[0].rx_buf = rx;
@@ -1550,6 +1556,23 @@ int cts_tcs_set_pocket_enable(struct cts_device *cts_dev, u8 enable)
 
     return ret;
 }
+
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+int cts_tcs_set_gesture_en_mask(const struct cts_device *cts_dev, bool d_tap, bool s_tap)
+{
+        int ret;
+        u8 buf[4] = {0};
+
+        buf[0] = d_tap ? 1 : 0;
+        buf[2] = s_tap ? 0x80 : 0;
+
+        cts_info("set gesture bit:0x%02x%02x%02x", buf[2], buf[1], buf[0]);
+
+        ret = cts_tcs_spi_write(cts_dev, CMD_GSTR_ENTER_MAP_RW,
+                        buf, sizeof(buf));
+        return ret;
+}
+#endif
 
 void cts_tcs_reinit_fw_status(struct cts_device *cts_dev)
 {

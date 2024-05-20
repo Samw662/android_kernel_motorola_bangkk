@@ -11,7 +11,6 @@
 #include "cts_earjack_detect.h"
 #include "cts_tcs.h"
 
-
 #ifdef CONFIG_CTS_I2C_HOST
 static int cts_i2c_writeb(const struct cts_device *cts_dev,
         u32 addr, u8 b, int retry, int delay)
@@ -1543,7 +1542,10 @@ int cts_suspend_device(struct cts_device *cts_dev)
 {
     int ret;
     u8 buf;
-
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+    struct chipone_ts_data *cts_data = container_of(cts_dev,
+        struct chipone_ts_data, cts_dev);
+#endif
     cts_info("Suspend device");
 
 /* Disable this check for sleep/gesture switch */
@@ -1562,6 +1564,10 @@ int cts_suspend_device(struct cts_device *cts_dev)
         }
     }
 
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        cts_tcs_set_gesture_en_mask(cts_dev, cts_data->d_tap_flag, cts_data->s_tap_flag);
+#endif
+
     cts_info("Set suspend mode:%s",
         cts_dev->rtdata.gesture_wakeup_enabled ? "gesture" : "sleep");
 
@@ -1574,7 +1580,11 @@ int cts_suspend_device(struct cts_device *cts_dev)
 
     cts_info("Device suspended ...");
     cts_dev->rtdata.suspended = true;
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+    cts_info("rst -------- high");
+    cts_plat_set_reset(cts_dev->pdata, 1);
+    cts_info("rst -------- high++");
+#endif
     return 0;
 }
 
@@ -2200,6 +2210,49 @@ init_hwdata:
 }
 
 #ifdef CFG_CTS_GESTURE
+int enter_gesture_pocket_mode(struct cts_device *cts_dev)
+{
+    int ret = 0;
+    u8 pockmode = 2;
+    u16 fwid = CTS_DEV_FWID_INVALID;
+
+    cts_err("enter gesture_pocket_mode start");
+    if (cts_dev->rtdata.gesture_wakeup_enabled) {
+        if (cts_dev->fwdata.int_data_method != INT_DATA_METHOD_HOST) {
+            ret = cts_tcs_get_fw_id(cts_dev, &fwid);
+            cts_warn("Get firmware id: 0x%02x", fwid);
+            if (ret){
+                cts_err("enter ready gesture_pocket_mode failed");
+            }
+            ret = cts_tcs_set_pwr_mode(cts_dev, pockmode);
+            if (ret){
+                cts_warn("enter gesture_pocket_mode failed %d", ret);
+            }
+            cts_err("enter gesture_pocket_mode success");
+        }
+    } else {
+        cts_warn("enter Not enabled to pocket mode");
+    }
+    return ret;
+}
+
+int exit_gesture_pocket_mode(struct cts_device *cts_dev)
+{
+    int ret;
+    u8 pockmode_exit = 3;
+    u16 fwid = CTS_DEV_FWID_INVALID;
+
+    cts_err("exit gesture_pocket_mode start");
+    ret = cts_tcs_get_fw_id(cts_dev, &fwid);
+    cts_warn("Get firmware id: 0x%02x", fwid);
+    ret = cts_tcs_set_pwr_mode(cts_dev, pockmode_exit);
+    if (ret){
+        cts_warn("exit gesture_pocket_mode_exit failed %d", ret);
+    }
+    cts_err("exit gesture_pocket_mode success");
+    return ret;
+}
+
 void cts_enable_gesture_wakeup(struct cts_device *cts_dev)
 {
     cts_info("Enable gesture wakeup");
@@ -2298,6 +2351,11 @@ static void cts_esd_protection_work(struct work_struct *work)
 
     cts_dbg("ESD protection work");
     cts_data = container_of(work, struct chipone_ts_data, esd_work.work);
+    if (!cts_is_device_enabled(&cts_data->cts_dev)) {
+        cts_info("stop esd check when suspend");
+        return;
+    }
+
     cts_lock_device(&cts_data->cts_dev);
     if (!cts_plat_is_normal_mode(cts_data->pdata)) {
         cts_data->esd_check_fail_cnt++;

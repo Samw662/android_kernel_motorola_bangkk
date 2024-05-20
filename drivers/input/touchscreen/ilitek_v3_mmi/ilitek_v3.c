@@ -73,7 +73,7 @@ static int ilitek_charger_notifier_callback(struct notifier_block *nb, unsigned 
 		}
 	}
 	if (!ret) {
-		if((prop.intval == USB_DETECT_IN) || (prop.intval == USB_DETECT_OUT)) {
+		if((prop.intval == USB_DETECT_IN) || (prop.intval == USB_DETECT_OUT) || (prop.intval == USB_DETECT_OUT_QCOM)) {
 			if(ilits->usb_plug_status != prop.intval) {
 				ILI_INFO("usb prop.intval =%d\n", prop.intval);
 				ilits->usb_plug_status = prop.intval;
@@ -182,6 +182,11 @@ static void ilitek_resume_by_ddi_work(struct work_struct *work)
 	}
 
 	ili_irq_enable();
+#if defined (ILI_STOWED_MODE_EN)&& defined(ILI_SENSOR_EN)
+	ilits->set_stowed = 0;
+	ilits->prox_near = false;
+	ILI_ERR("ilits->set_stowed = %d,ilits->prox_near = %d\n",ilits->set_stowed,ilits->prox_near);
+#endif
 	ILI_INFO("TP resume end by wq\n");
 	ili_wq_ctrl(WQ_ESD, ENABLE);
 	ili_wq_ctrl(WQ_BAT, ENABLE);
@@ -688,6 +693,13 @@ int ili_sleep_handler(int mode)
 				ILI_ERR("Write sleep in cmd failed\n");
 		}
 #endif
+#if defined (ILI_STOWED_MODE_EN) && defined (ILI_SENSOR_EN)
+		if (ilits->should_enable_gesture && ilits->get_stowed && ilits->tp_suspend) {
+			ili_proximity_near(DDI_POWER_ON);
+			ilits->set_stowed = ilits->get_stowed;
+			ILI_INFO("Enable stowed mode suspend\n");
+		}
+#endif
 		ILI_INFO("TP suspend end\n");
 		break;
 	case TP_DEEP_SLEEP:
@@ -749,16 +761,20 @@ int ili_sleep_handler(int mode)
 		}
 
 #ifdef ILI_SENSOR_EN
-	if (ilits->wakeable) {
-		disable_irq_wake(ilits->irq_num);
-		ilits->gesture_enabled = false;
-		ilits->wakeable = false;
-	}
+		if (ilits->wakeable) {
+			disable_irq_wake(ilits->irq_num);
+			ilits->gesture_enabled = false;
+			ilits->wakeable = false;
+		}
 #else
-	if (ilits->gesture)
-		disable_irq_wake(ilits->irq_num);
+		if (ilits->gesture)
+			disable_irq_wake(ilits->irq_num);
 #endif
-
+#if defined (ILI_STOWED_MODE_EN) && defined (ILI_SENSOR_EN)
+		ilits->set_stowed = 0;
+                ilits->prox_near = false;
+                ILI_ERR("ilits->set_stowed = %d,ilits->prox_near = %d\n", ilits->set_stowed,ilits->prox_near);
+#endif
 		ILI_INFO("TP resume end\n");
 #else
 		ili_resume_by_ddi();
@@ -800,7 +816,7 @@ int ili_fw_upgrade_handler(void *data)
 			ILI_INFO("charge status is %d\n", ilits->usb_plug_status);
 			if (ilits->usb_plug_status == USB_DETECT_IN) {
 				ret = ili_ic_func_ctrl("plug", 0);/* plug in */
-			} else if (ilits->usb_plug_status == USB_DETECT_OUT) {
+			} else if ((ilits->usb_plug_status == USB_DETECT_OUT) || (ilits->usb_plug_status == USB_DETECT_OUT_QCOM)) {
 				ret = ili_ic_func_ctrl("plug", 1);/* plug out */
 			}
 			if (ret < 0) {

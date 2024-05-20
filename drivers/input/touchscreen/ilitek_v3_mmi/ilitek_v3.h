@@ -167,7 +167,10 @@
 #define USB_DETECT_IN 			1
 #define USB_DETECT_OUT 			2
 #else
-#define CHARGER_NOTIFIER_CALLBACK	DISABLE
+#define USB_DETECT_IN                   1
+#define USB_DETECT_OUT                  2
+#define USB_DETECT_OUT_QCOM		0
+#define CHARGER_NOTIFIER_CALLBACK      ENABLE
 #endif
 #define ENABLE_EDGE_PALM_PARA		DISABLE
 #define MULTI_REPORT_RATE		DISABLE
@@ -238,19 +241,19 @@
 
 #define ILI_INFO(fmt, arg...)						\
 ({									\
-	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_info("ILITEK[INFO]: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 })									\
 
 #define ILI_ERR(fmt, arg...)						\
 ({									\
-	pr_err("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_err("ILITEK[ERR]: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 })									\
 
 extern bool debug_en;
 #define ILI_DBG(fmt, arg...)						\
 do {									\
 	if (debug_en)						\
-	pr_info("ILITEK: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
+	pr_info("ILITEK[DBG]: (%s, %d): " fmt, __func__, __LINE__, ##arg);	\
 } while (0)
 
 #define ERR_ALLOC_MEM(X)	((IS_ERR(X) || X == NULL) ? 1 : 0)
@@ -1335,6 +1338,8 @@ struct ilitek_ts_data {
 	atomic_t cmd_int_check;
 	atomic_t esd_stat;
 
+	int set_stowed;
+	int get_stowed;
 #ifdef ILI_SENSOR_EN
 	bool wakeable;
 	bool should_enable_gesture;
@@ -1343,6 +1348,7 @@ struct ilitek_ts_data {
 #ifdef ILI_DOUBLE_TAP_CTRL
 	uint8_t supported_gesture_type;
 	uint8_t sys_gesture_type;
+	uint8_t rst_pull_flag;
 #endif
 	struct mutex state_mutex;
 	struct ili_sensor_platform_data *sensor_pdata;

@@ -5,7 +5,6 @@
 #include <asm/byteorder.h>
 #include <linux/bitops.h>
 #include <linux/ctype.h>
-#include <linux/unaligned/access_ok.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -44,6 +43,11 @@
 #include <linux/spi/spidev.h>
 
 #include "cts_config.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+#include <asm-generic/unaligned.h>
+#else
+#include <linux/unaligned/access_ok.h>
+#endif
 #include "cts_core.h"
 
 extern bool cts_show_debug_log;
@@ -84,6 +88,7 @@ struct cts_platform_data {
     int int_gpio;
 #ifdef CFG_CTS_HAS_RESET_PIN
     int rst_gpio;
+    bool rst_pull_flag;
 #endif
 
 #ifdef CFG_CTS_MANUAL_CS
@@ -119,7 +124,7 @@ struct cts_platform_data {
 
 #ifdef CFG_CTS_GESTURE
     u8 gesture_num;
-    u8 gesture_keymap[CFG_CTS_NUM_GESTURE][2];
+    int gesture_keymap[CFG_CTS_NUM_GESTURE][2];
     bool irq_wake_enabled;
 #endif
 
@@ -145,6 +150,19 @@ struct cts_platform_data {
     u8 spi_rx_buf[ALIGN(CFG_CTS_MAX_SPI_XFER_SIZE + 10, 4)];
     u8 spi_tx_buf[ALIGN(CFG_CTS_MAX_SPI_XFER_SIZE + 10, 4)];
     u32 spi_speed;
+#endif
+
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+    int supported_gesture_type;
+#endif
+
+#ifdef CTS_STOWED_MODE_EN
+    int stowed_set;
+    int stowed_get;
+#endif
+
+#ifdef TOUCHSCREEN_PM_BRL_SPI
+    bool gesture_wait_pm;
 #endif
 };
 

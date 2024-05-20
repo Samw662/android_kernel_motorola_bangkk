@@ -203,6 +203,18 @@ struct wls_dump
 };
 #endif
 
+struct msb_dev_info
+{
+    u32  usb_iin;
+    u32  usb_vout;
+    u32  usb_suspend;
+    u32  batt_fcc;
+    u32  batt_fv;
+    u32  chg_en;
+    u32  chg_st;
+    u32  chg_fault;
+};
+
 struct qti_charger {
 	char				*name;
 	struct device			*dev;
@@ -245,6 +257,7 @@ struct qti_charger {
 	bool				*debug_enabled;
 	u32				wls_curr_max;
 	int				rx_connected;
+	u32				switched_nums;
 	struct notifier_block		wls_nb;
 	struct dentry		*debug_root;
 	struct power_supply		*batt_psy;
@@ -700,13 +713,48 @@ void qti_wireless_charge_dump_info(struct qti_charger *chg, struct wls_dump wls_
 }
 #endif
 
+#if defined(MSB_DEV)
+void qti_msb_dev_info(struct qti_charger *chg, struct msb_dev_info msb_dev)
+{
+	mmi_info(chg, "msb dev info : usb_iin: %dma, usb_vout: %dmv, usb_suspend: %d, "
+		"batt_fcc: %dma, batt_fv: %dmv, chg_en: %d,  chg_fault: 0x%x, chg_st: 0x%x",
+		msb_dev.usb_iin,
+		msb_dev.usb_vout,
+		msb_dev.usb_suspend,
+		msb_dev.batt_fcc,
+		msb_dev.batt_fv,
+		msb_dev.chg_en,
+		msb_dev.chg_fault,
+		msb_dev.chg_st);
+}
+#endif
+
+#if defined(SWITCHEDCAP_DUMP)
+void qti_switched_dump_info(struct qti_charger *chg, struct switched_dev_info switched_info)
+{
+	mmi_info(chg, "switchedcap dump info [%d]: chg_en %d, work_mode 0x%x, int_stat 0x%x, "
+			"ibat_ma %d, ibus_ma %d, vbus_mv %d, vout_mv %d, vac_mv %d, vbat_mv %d, "
+			"vusb_mv %d, vwpc_mv %d, die_temp %d",
+			switched_info.chg_role, switched_info.chg_en, switched_info.work_mode,
+			switched_info.int_stat, switched_info.ibat_ma, switched_info.ibus_ma,
+			switched_info.vbus_mv, switched_info.vout_mv, switched_info.vac_mv,
+			switched_info.vbat_mv, switched_info.vusb_mv, switched_info.vwpc_mv, switched_info.die_temp);
+}
+#endif
+
 static int qti_charger_get_chg_info(void *data, struct mmi_charger_info *chg_info)
 {
 	int rc;
 	struct qti_charger *chg = data;
 	struct charger_info info;
 	struct wls_dump wls_info;
-
+#if defined(MSB_DEV)
+	struct msb_dev_info msb_dev;
+#endif
+#if defined(SWITCHEDCAP_DUMP)
+	struct switched_dev_info master_switched_info;
+	int i = 0;
+#endif
 	rc = qti_charger_read(chg, OEM_PROP_CHG_INFO,
 				&info,
 				sizeof(struct charger_info));
@@ -736,8 +784,15 @@ static int qti_charger_get_chg_info(void *data, struct mmi_charger_info *chg_inf
 	if (!info.chrg_present && info.chrg_type != 0)
 		chg->chg_info.chrg_present = 1;
 
-	chg->chg_info.chrg_otg_enabled = info.chrg_otg_enabled;
 	chg->chg_info.vbus_present = chg->chg_info.chrg_mv > VBUS_MIN_MV;
+	if (chg->wls_psy) {
+		union power_supply_propval val;
+		rc = power_supply_get_property(chg->wls_psy,
+				POWER_SUPPLY_PROP_ONLINE, &val);
+		if (!rc && val.intval)
+			chg->chg_info.vbus_present = false;
+	}
+	chg->chg_info.chrg_otg_enabled = info.chrg_otg_enabled;
 	chg->chg_info.lpd_present = chg->lpd_info.lpd_present;
 	memcpy(chg_info, &chg->chg_info, sizeof(struct mmi_charger_info));
 
@@ -748,6 +803,22 @@ static int qti_charger_get_chg_info(void *data, struct mmi_charger_info *chg_inf
 
 		qti_wireless_charge_dump_info(chg, wls_info);
 	}
+
+#if defined(MSB_DEV)
+	qti_charger_read(chg, OEM_PROP_MSB_DEV_INFO,
+				&msb_dev,
+				sizeof(struct msb_dev_info));
+	qti_msb_dev_info(chg, msb_dev);
+#endif
+
+#if defined(SWITCHEDCAP_DUMP)
+	for (i = 0; i < chg->switched_nums; i++) {
+		qti_charger_read(chg, OEM_PROP_MASTER_SWITCHEDCAP_INFO + i,
+							&master_switched_info,
+							sizeof(struct switched_dev_info));
+		qti_switched_dump_info(chg, master_switched_info);
+	}
+#endif
 
 	bm_ulog_print_log(OEM_BM_ULOG_SIZE);
 
@@ -2743,6 +2814,36 @@ static int qti_charger_init(struct qti_charger *chg)
 	return 0;
 }
 
+bool qti_charger_reset_chargepump(struct qti_charger *chg)
+{
+	unsigned long reset = 0x1;
+	int rc ;
+
+	if(!chg) {
+		pr_err("QTI: chip not valid");
+		return false;
+	}
+
+	rc = qti_charger_write(chg, OEM_PROP_MASTER_SWITCHEDCAP_RESET, &reset, sizeof(reset));
+	if(rc) {
+		mmi_err(chg, "qit charger reset charger pump register fail:%d\n", rc);
+	}
+
+	return true;
+}
+
+static void qti_charger_shutdown(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct qti_charger *chg= dev_get_drvdata(dev);
+
+	//reset charger pump register before shutdown.
+	qti_charger_reset_chargepump(chg);
+	mmi_info(chg, "qti_charger_shutdown\n");
+
+	return;
+}
+
 static void qti_charger_deinit(struct qti_charger *chg)
 {
 	int rc;
@@ -2934,6 +3035,12 @@ static int qti_charger_parse_dt(struct qti_charger *chg)
 		}
 	}
 
+	rc = of_property_read_u32(node, "mmi,switched-nums",
+				  &chg->switched_nums);
+	if (rc) {
+		chg->switched_nums = 1;
+	}
+
 	return 0;
 }
 
@@ -3019,6 +3126,7 @@ static struct platform_driver qti_charger_driver = {
 	},
 	.probe	= qti_charger_probe,
 	.remove	= qti_charger_remove,
+	.shutdown = qti_charger_shutdown,
 };
 
 module_platform_driver(qti_charger_driver);

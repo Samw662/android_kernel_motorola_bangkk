@@ -2,6 +2,11 @@
 #define CTS_CORE_H
 
 #include "cts_config.h"
+#include <linux/mmi_wake_lock.h>
+#include <linux/regulator/consumer.h>
+#ifdef CHIPONE_SENSOR_EN
+#include <linux/sensors.h>
+#endif
 
 enum cts_dev_hw_reg {
 #if defined(CONFIG_CTS_ICTYPE_ICNL9922C) ||\
@@ -390,6 +395,29 @@ struct cts_device {
 
 struct cts_platform_data;
 
+#define MAX_PANEL_IDX 2
+enum touch_panel_id {
+        TOUCH_PANEL_IDX_PRIMARY = 0,
+        TOUCH_PANEL_MAX_IDX,
+};
+
+#ifdef CHIPONE_SENSOR_EN
+/* display state */
+enum display_state {
+        SCREEN_UNKNOWN,
+        SCREEN_OFF,
+        SCREEN_ON,
+};
+struct chipone_sensor_platform_data {
+        struct input_dev *input_sensor_dev;
+        struct sensors_classdev ps_cdev;
+        int sensor_opened;
+        char sensor_data; /* 0 near, 1 far */
+        struct chipone_ts_data *data;
+};
+#define REPORT_MAX_COUNT 10000
+#endif
+
 struct chipone_ts_data {
 #ifdef CONFIG_CTS_I2C_HOST
     struct i2c_client *i2c_client;
@@ -426,12 +454,49 @@ struct chipone_ts_data {
     struct proc_dir_entry *procfs_entry;
 #endif
 
+#ifdef CHIPONE_SENSOR_EN
+        bool wakeable;
+        bool should_enable_gesture;
+        bool gesture_enabled;
+        uint32_t report_gesture_key;
+        enum display_state screen_state;
+        struct mutex state_mutex;
+        struct chipone_sensor_platform_data *sensor_pdata;
+#ifdef CONFIG_HAS_WAKELOCK
+        struct wake_lock gesture_wakelock;
+#else
+        struct wakeup_source *gesture_wakelock;
+#endif
+#endif
+
+#ifdef CONFIG_GTP_LAST_TIME
+    ktime_t last_event_time;
+#endif
+
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        unsigned char gesture_mode_type;
+        bool d_tap_flag;
+        bool s_tap_flag;
+#endif
+#ifdef CONFIG_DRM_PANEL_EVENT_NOTIFICATIONS
+        void* notifier_cookie;
+#endif
     void *oem_data;
 
     bool force_reflash;
     struct kobject *suspend_kobj;
+
+#ifdef CTS_STOWED_MODE_EN
+    atomic_t post_suspended;
+#endif
+
+#ifdef TOUCHSCREEN_PM_BRL_SPI
+    atomic_t pm_resume;
+    wait_queue_head_t pm_wq;
+#endif
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static inline u32 get_unaligned_le24(const void *p)
 {
     const u8 *puc = (const u8 *)p;
@@ -452,6 +517,7 @@ static inline void put_unaligned_be24(u32 v, void *p)
     puc[1] = (v >> 8) & 0xFF;
     puc[2] = (v >> 0) & 0xFF;
 }
+#endif
 
 #define wrap(max, x)        ((max) - 1 - (x))
 
@@ -744,6 +810,8 @@ extern void cts_enable_gesture_wakeup(struct cts_device *cts_dev);
 extern void cts_disable_gesture_wakeup(struct cts_device *cts_dev);
 extern bool cts_is_gesture_wakeup_enabled(const struct cts_device *cts_dev);
 extern int cts_get_gesture_info(struct cts_device *cts_dev, void *gesture_info);
+extern int enter_gesture_pocket_mode(struct cts_device *cts_dev);
+extern int exit_gesture_pocket_mode(struct cts_device *cts_dev);
 #endif /* CFG_CTS_GESTURE */
 
 extern int cts_set_int_data_types(struct cts_device *cts_dev, u16 types);
@@ -865,6 +933,6 @@ extern const char *cts_dev_boot_mode2str(u8 boot_mode);
 extern bool cts_is_fwid_valid(u16 fwid);
 
 extern int cts_reset_device(struct cts_device *cts_dev);
-
+extern int touch_set_state(int state, int panel_idx);
 extern int kstrtobool(const char *s, bool *res);
 #endif /* CTS_CORE_H */

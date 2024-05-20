@@ -50,7 +50,7 @@
 #define LOG_TAG "<AW9610X_LOG>"
 
 #define LOG_INFO(fmt, args...)    pr_info(LOG_TAG "[INFO]" "<%s><%d>"fmt, __func__, __LINE__, ##args)
-#define LOG_DBG(fmt, args...)	pr_debug(LOG_TAG "[DBG]" "<%s><%d>"fmt, __func__, __LINE__, ##args)
+#define LOG_DBG(fmt, args...)   pr_debug(LOG_TAG "[DBG]" "<%s><%d>"fmt, __func__, __LINE__, ##args)
 #define LOG_ERR(fmt, args...)   pr_err(LOG_TAG "[ERR]" "<%s><%d>"fmt, __func__, __LINE__, ##args)
 
 struct aw9610x *g_aw9610x;
@@ -288,7 +288,7 @@ aw9610x_addrblock_load(struct device *dev, const char *buf)
 							(uint8_t)addrbuf[i];
 	}
 }
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 /******************************************************
  *
  *the document of storage_spedata
@@ -297,7 +297,9 @@ aw9610x_addrblock_load(struct device *dev, const char *buf)
 static int32_t aw9610x_filedata_deal(struct aw9610x *aw9610x)
 {
 	struct file *fp = NULL;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	mm_segment_t fs;
+#endif
 	int8_t *buf;
 	int8_t temp_buf[8] = { 0 };
 	uint8_t i = 0;
@@ -315,25 +317,39 @@ static int32_t aw9610x_filedata_deal(struct aw9610x *aw9610x)
 		return -EINVAL;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
+
 	buf = (char *)kzalloc(CALI_FILE_MAX_SIZE, GFP_KERNEL);
 	if (!buf) {
 		LOG_ERR("malloc failed!");
 		filp_close(fp, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 		set_fs(fs);
+#endif
 		return -EINVAL;
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
 	ret = vfs_read(fp, buf, CALI_FILE_MAX_SIZE, &(fp->f_pos));
+#else
+	ret = kernel_read(fp, buf, CALI_FILE_MAX_SIZE, &(fp->f_pos));
+#endif
+
 	if (ret < 0) {
 		LOG_ERR("read failed");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 		set_fs(fs);
+#endif
 		aw9610x->cali_flag = AW_CALI;
 		return ret;
 	} else if (ret == 0) {
 		LOG_ERR("read len = 0");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 		set_fs(fs);
+#endif
 		aw9610x->cali_flag = AW_CALI;
 		return ret;
 	} else {
@@ -347,7 +363,9 @@ static int32_t aw9610x_filedata_deal(struct aw9610x *aw9610x)
 			}
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	set_fs(fs);
+#endif
 	filp_close(fp, NULL);
 	kfree(buf);
 
@@ -374,7 +392,9 @@ aw9610x_store_spedata_to_file(struct aw9610x *aw9610x, char *buf)
 {
 	struct file *fp = NULL;
 	loff_t pos = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	mm_segment_t fs;
+#endif
 	uint8_t cali_file_name[20] = { 0 };
 
 	LOG_DBG("buf = %s", buf);
@@ -388,12 +408,20 @@ aw9610x_store_spedata_to_file(struct aw9610x *aw9610x, char *buf)
 		return -EINVAL;
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	fs = get_fs();
 	set_fs(KERNEL_DS);
+#endif
 
-	vfs_write(fp, buf, strlen(buf), &pos);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+	vfs_write(fp, (char __user *)buf, strlen(buf), &pos);
+#else
+	kernel_write(fp, (char __user *)buf, strlen(buf), &pos);
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	set_fs(fs);
+#endif
 
 	LOG_INFO("write successfully!");
 
@@ -522,6 +550,7 @@ static void aw9610x_spereg_deal(struct aw9610x *aw9610x)
 	aw9610x_class1_reg(aw9610x);
 	aw9610x_class2_reg(aw9610x);
 }
+#endif
 
 static void aw9610x_datablock_load(struct device *dev, const char *buf)
 {
@@ -554,7 +583,7 @@ static void aw9610x_datablock_load(struct device *dev, const char *buf)
 	aw9610x->aw_i2c_package.p_reg_data = reg_data;
 	i2c_write_seq(aw9610x);
 }
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static void aw9610x_power_on_prox_detection(struct aw9610x *aw9610x)
 {
 	int32_t ret = 0;
@@ -584,16 +613,20 @@ static void aw9610x_power_on_prox_detection(struct aw9610x *aw9610x)
 	if (reg_data & 0x10000)
 		aw9610x->power_prox = 1;
 }
+#endif
 
 static void aw9610x_channel_scan_start(struct aw9610x *aw9610x)
 {
 	LOG_DBG("enter");
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	if (aw9610x->pwprox_dete == true) {
 		 aw9610x_power_on_prox_detection(aw9610x);
 	} else {
 		aw9610x_i2c_write(aw9610x, REG_CMD, AW9610X_ACTIVE_MODE);
 	}
-
+#else
+	aw9610x_i2c_write(aw9610x, REG_CMD, AW9610X_ACTIVE_MODE);
+#endif
 	aw9610x_i2c_write(aw9610x, REG_HOSTIRQEN, aw9610x->hostirqen);
 	aw9610x->mode = AW9610X_ACTIVE_MODE;
 }
@@ -711,7 +744,11 @@ static int32_t aw9610x_cfg_update(struct aw9610x *aw9610x)
 #endif
 
                 LOG_INFO("aw9610x_cfg_update cfg_name = %s", aw9610x->cfg_name);
-		request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,15,0)
+        request_firmware_nowait(THIS_MODULE, FW_ACTION_UEVENT,
+#else
+        request_firmware_nowait(THIS_MODULE, FW_ACTION_HOTPLUG,
+#endif
 							aw9610x->cfg_name,
 							aw9610x->dev,
 							GFP_KERNEL,
@@ -1061,6 +1098,7 @@ static ssize_t aw9610x_awrw_get(struct device *dev,
 	return len;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static ssize_t aw9610x_factory_cali_set(struct device *dev,
 						struct device_attribute *attr,
 						const char *buf, size_t count)
@@ -1101,6 +1139,7 @@ static ssize_t aw9610x_power_prox_get(struct device *dev,
 
 	return len;
 }
+#endif
 
 static ssize_t aw9610x_awrw_set(struct device *dev,
 						struct device_attribute *attr,
@@ -1276,12 +1315,16 @@ static DEVICE_ATTR(diff, 0664, aw9610x_diff_show, NULL);
 static DEVICE_ATTR(raw_data, 0664, aw9610x_raw_data_show, NULL);
 static DEVICE_ATTR(psc_data, 0664, aw9610x_psc_data_show, NULL);
 static DEVICE_ATTR(parasitic_data, 0664, aw9610x_parasitic_data_show, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static DEVICE_ATTR(factory_cali, 0664, NULL, aw9610x_factory_cali_set);
+#endif
 static DEVICE_ATTR(aot_cali, 0664, NULL, aw9610x_aot_cali_set);
 static DEVICE_ATTR(awrw, 0664, aw9610x_awrw_get, aw9610x_awrw_set);
 static DEVICE_ATTR(update, 0644, NULL, aw9610x_set_update);
 static DEVICE_ATTR(satu, 0644, aw9610x_get_satu, aw9610x_set_satu);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static DEVICE_ATTR(prox, 0644, aw9610x_power_prox_get, NULL);
+#endif
 static DEVICE_ATTR(operation_mode, 0644, aw9610x_operation_mode_get,
 						aw9610x_operation_mode_set);
 
@@ -1294,11 +1337,15 @@ static struct attribute *aw9610x_sar_attributes[] = {
 	&dev_attr_psc_data.attr,
 	&dev_attr_parasitic_data.attr,
 	&dev_attr_awrw.attr,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	&dev_attr_factory_cali.attr,
+#endif
 	&dev_attr_aot_cali.attr,
 	&dev_attr_update.attr,
 	&dev_attr_satu.attr,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 	&dev_attr_prox.attr,
+#endif
 	&dev_attr_operation_mode.attr,
 	NULL
 };
@@ -1397,16 +1444,19 @@ static int capsensor_set_enable(struct sensors_classdev *sensors_cdev, unsigned 
 {
 	struct aw9610x *aw9610x = g_aw9610x;
 	uint8_t i = 0;
-        uint32_t data_en = 0;
+	uint32_t data_en = 0;
+	bool enableFlag = false;
 
         for (i = 0; i < aw9610x->aw_channel_number; i++)
         {
 		if ((aw9610x->aw_ref_channel >> i) & 0x1) continue;
                 if (!strcmp(sensors_cdev->name, aw9610x->aw_ch_name[aw9610x->sar_num * AW_CHANNEL_MAX + i])) {
                         if (enable == 1){
+                                sensors_capsensor_chs[i].enabled = 1;
                                 input_report_abs(aw9610x->aw_pad[i].input, ABS_DISTANCE, 0);
                                 input_sync(aw9610x->aw_pad[i].input);
                         }else if (enable == 0){
+                                sensors_capsensor_chs[i].enabled = 0;
                                 input_report_abs(aw9610x->aw_pad[i].input, ABS_DISTANCE, -1);
                                 input_sync(aw9610x->aw_pad[i].input);
 			}
@@ -1414,14 +1464,24 @@ static int capsensor_set_enable(struct sensors_classdev *sensors_cdev, unsigned 
                 }
         }
 
+        //if all chs disabled, then disable all
+        for (i = 0; i < aw9610x->aw_channel_number; i++)
+        {
+		if ((aw9610x->aw_ref_channel >> i) & 0x1) continue;
+		if (sensors_capsensor_chs[i].enabled) {
+			enableFlag = true;
+			break;
+		}
+        }
+
 	aw9610x->mode = enable;
-	if (aw9610x->mode == AW9610X_ACTIVE_AP_MODE) {
+	if (enableFlag == AW9610X_ACTIVE_AP_MODE) {
                 aw9610x_i2c_read(aw9610x, REG_SCANCTRL0, &data_en);
                 aw9610x_i2c_write_bits(aw9610x, REG_SCANCTRL0, ~(0x3f << 8), (data_en & 0x3f) << 8);
 		if (aw9610x->mode_flag1 == AW9610X_FUNC_ON)
 			aw9610x_i2c_write(aw9610x, REG_HOSTCTRL1, 1);
 		aw9610x_i2c_write(aw9610x, REG_CMD, AW9610X_ACTIVE_MODE);
-	} else if (aw9610x->mode == AW9610X_SLEEP_AP_MODE) {
+	} else if (enableFlag == AW9610X_SLEEP_AP_MODE) {
 		if (aw9610x->mode_flag1 == AW9610X_FUNC_ON)
 			aw9610x_i2c_write(aw9610x, REG_HOSTCTRL1, 1);
 		aw9610x_i2c_write(aw9610x, REG_CMD, AW9610X_SLEEP_MODE);
@@ -1650,6 +1710,7 @@ static void aw9610x_irq_handle(struct aw9610x *aw9610x)
 	}
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 static void aw9610x_farirq_handle(struct aw9610x *aw9610x)
 {
 	uint8_t th0_far = 0;
@@ -1658,6 +1719,7 @@ static void aw9610x_farirq_handle(struct aw9610x *aw9610x)
 	if (th0_far == 1)
 		aw9610x->power_prox = AW9610X_FUNC_OFF;
 }
+#endif
 
 static void aw9610x_interrupt_clear(struct aw9610x *aw9610x)
 {
@@ -1672,9 +1734,10 @@ static void aw9610x_interrupt_clear(struct aw9610x *aw9610x)
 	} else {
 		if ((aw9610x->satu_release == AW9610X_FUNC_ON) && (aw9610x->vers == AW9610X))
 			aw9610x_saturat_release_handle(aw9610x);
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 		if (aw9610x->pwprox_dete == true)
 			aw9610x_farirq_handle(aw9610x);
+#endif
 	}
 
 	LOG_INFO("IRQSRC = 0x%x", aw9610x->irq_status);
@@ -2131,6 +2194,7 @@ aw9610x_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		sensors_capsensor_chs[i].sensors_enable = capsensor_set_enable;
 		sensors_capsensor_chs[i].sensors_poll_delay = NULL;
 		sensors_capsensor_chs[i].name = aw9610x->aw_ch_name[aw9610x->sar_num * AW_CHANNEL_MAX + i];
+		sensors_capsensor_chs[i].enabled = 0;
 		LOG_INFO("cap sensor_class channel_name:%s\n", aw9610x->aw_ch_name[aw9610x->sar_num * AW_CHANNEL_MAX + i]);
 		ret = sensors_classdev_register(&aw9610x->aw_pad[i].input->dev, &sensors_capsensor_chs[i]);
 		if (ret < 0)

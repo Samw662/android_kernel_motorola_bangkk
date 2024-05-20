@@ -39,7 +39,12 @@
 #ifdef NOVATECH_PEN_NOTIFIER
 #include <linux/pen_detection_notify.h>
 #endif
-
+#if (!defined(CONFIG_INPUT_TOUCHSCREEN_MMI) && defined(NVT_CONFIG_DRM_PANEL))
+#if IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
+#define NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+#include <linux/soc/qcom/panel_event_notifier.h>
+#endif
+#endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -116,6 +121,9 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 #define VERTICAL   1
 #define LEFT_UP   2
 #define RIGHT_UP  3
+#define NVT_STOWED_MODE_CMD 0x7C
+#define NVT_STOWED_MODE_EN  0x01
+#define NVT_STOWED_MODE_DIS 0x00
 
 /* Enable only when module have tp reset pin and connected to host */
 #define NVT_TOUCH_SUPPORT_HW_RST 0
@@ -215,6 +223,11 @@ struct nvt_ts_data {
 	wait_queue_head_t pm_wq;
 	bool gesture_wait_pm;
 	const char *panel_supplier;
+#ifdef CONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+        int supported_gesture_type;
+        bool d_tap_flag;
+        bool s_tap_flag;
+#endif
 #ifdef CONFIG_MTK_SPI
 	struct mt_chip_conf spi_ctrl;
 #endif
@@ -256,6 +269,9 @@ struct nvt_ts_data {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 #if defined(CONFIG_DRM)
 	struct notifier_block drm_notif;
+#ifdef NVT_DRM_PANEL_EVENT_NOTIFICATIONS
+    void* notifier_cookie;
+#endif
 #endif
 #else //vension code < 5.4.0
 #if defined(CONFIG_FB)
@@ -287,6 +303,8 @@ struct nvt_ts_data {
 	uint8_t edge_cmd[3];	/* /< edge switching command */
 	uint8_t rotate_cmd;	/* /< rotate switching command */
 	bool edge_ctrl;	/* /< edge rate switching */
+	int set_stowed;
+	int get_stowed;
 };
 
 #if NVT_TOUCH_PROC
