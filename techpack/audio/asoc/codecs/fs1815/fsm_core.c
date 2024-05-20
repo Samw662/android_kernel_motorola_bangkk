@@ -15,11 +15,10 @@ static int g_dev_inited = 0;
 static atomic_t fsm_amp_switch;
 static atomic_t fsm_adsp_enable;
 
-
 //include "q6fsm-v3.h"
 extern int q6fsm_set_rotation(int angle);
 extern int q6fsm_set_rx_enable(int enable);
-
+extern void q6fsm_fsm_check_scene_status(bool status);
 static LIST_HEAD(fsm_dev_list);
 #define fsm_list_init(fsm_dev) \
 	do { \
@@ -1645,6 +1644,10 @@ int fsm_rotation_put(struct snd_kcontrol *kcontrol,
 	}
 
 	pr_info("angle: %d", angle);
+
+	if(cfg->next_angle == angle)
+		return 0;
+
 	if(q6fsm_set_rotation(angle) == 0){
 		cfg->next_angle = angle;
 	}
@@ -1705,6 +1708,16 @@ void fsm_add_card_controls(struct snd_soc_card *card)
 }
 EXPORT_SYMBOL_GPL(fsm_add_card_controls);
 
+static int fsm_check_scene_status()
+{
+	fsm_config_t *cfg = fsm_get_config();
+	if(cfg->speaker_on && cfg->next_scene == FSM_SCENE_MUSIC){
+		return 0;
+	}
+
+	return -1;
+}
+
 void fsm_speaker_onn(void)
 {
 	fsm_config_t *cfg = fsm_get_config();
@@ -1724,6 +1737,13 @@ void fsm_speaker_onn(void)
 	fsm_list_func(fsm_dev, fsm_stub_start_up);
 	cfg->cur_angle = cfg->next_angle;
 	cfg->speaker_on = true;
+
+	if(fsm_check_scene_status() == 0) {
+		q6fsm_fsm_check_scene_status(true);
+	} else {
+		q6fsm_fsm_check_scene_status(false);
+	}
+
 	pr_debug("done");
 	fsm_mutex_unlock();
 }
@@ -1746,6 +1766,9 @@ void fsm_speaker_off(void)
 	}
 	fsm_list_func(fsm_dev, fsm_stub_shut_down);
 	cfg->speaker_on = false;
+	cfg->next_angle = 0;
+	atomic_set(&fsm_adsp_enable, 0);
+	q6fsm_fsm_check_scene_status(false);
 	fsm_mutex_unlock();
 	fsm_set_scene(0); // scene music
 	pr_debug("done");

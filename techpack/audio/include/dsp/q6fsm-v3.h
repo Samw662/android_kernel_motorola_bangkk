@@ -26,7 +26,7 @@
 
 // TODO update
 #define Q6FSM_AFE_RX_PORT (AFE_PORT_ID_RX_CODEC_DMA_RX_0)
-#define Q6FSM_AFE_TX_PORT (AFE_PORT_ID_TX_CODEC_DMA_TX_3)
+#define Q6FSM_AFE_TX_PORT (AFE_PORT_ID_TX_CODEC_DMA_TX_0)
 
 #define Q6FSM_CHUNK_SIZE  (256)
 
@@ -44,7 +44,7 @@
 #define CAPI_V2_PARAM_FSADSP_ROTATION      0x10001FB1
 #define CAPI_V2_PARAM_FSADSP_FADE          0x10001FB7
 
-#define Q6FSM_RETRY_TIME (3)
+#define Q6FSM_RETRY_TIME (1)
 #define Q6FSM_SLEEP_TIME (10)
 
 struct bsg_config_v2 {
@@ -73,7 +73,6 @@ struct q6fsm_afe {
 	bool monitor_en;
 	int bsg_version;
 	struct bsg_config_v2 config;
-	int angle;
 };
 
 typedef enum _fs__chann_t
@@ -100,6 +99,7 @@ typedef struct _fsm_rotation_info_t
 
 static struct q6fsm_afe *g_fsm_afe;
 static uint32_t *q6fsm_get_buffer;
+static bool fsm_scene_status = false;
 
 static int q6afe_set_params(u16 port_id, int index,
 			    struct mem_mapping_hdr *mem_hdr,
@@ -259,8 +259,17 @@ static int q6fsm_afe_get_params(struct param_hdr_v3 *param_hdr,
 bool q6fsm_get_rx_status(void)
 {
 	struct param_hdr_v3 param_hdr;
-	int enable;
+	uint32_t enable;
 	int ret;
+
+	if(fsm_scene_status == false){
+		return -EINVAL;
+	}
+
+	if (!q6fsm_check_dsp_ready()) {
+		fsm_info("DSP not ready yet!");
+		return -EINVAL;
+	}
 
 	param_hdr.module_id = AFE_MODULE_ID_FSADSP_RX;
 	param_hdr.instance_id = 0;
@@ -281,16 +290,16 @@ EXPORT_SYMBOL(q6fsm_get_rx_status);
 
 int q6fsm_set_rx_enable(int enable)
 {
-	struct q6fsm_afe *q6fsm = g_fsm_afe;
 	struct param_hdr_v3 param_hdr;
 	uint32_t param;
 	int ret;
 
-	if (q6fsm == NULL)
+	if(fsm_scene_status == false){
 		return -EINVAL;
+	}
 
-	if (!q6fsm_get_rx_status()) {
-		fsm_info("RX module isn't ready");
+	if (!q6fsm_check_dsp_ready()) {
+		fsm_info("DSP not ready yet!");
 		return -EINVAL;
 	}
 
@@ -299,7 +308,7 @@ int q6fsm_set_rx_enable(int enable)
 	param_hdr.instance_id = 0;
 	param_hdr.reserved = 0;
 	param_hdr.param_id = CAPI_V2_PARAM_FSADSP_RX_ENABLE;
-	param_hdr.param_size = sizeof(int);
+	param_hdr.param_size = sizeof(param);
 	ret = q6fsm_afe_set_params(&param_hdr,
 		(uint8_t *)&param, sizeof(param));
 	if (ret) {
@@ -313,42 +322,36 @@ EXPORT_SYMBOL(q6fsm_set_rx_enable);
 
 int q6fsm_set_rotation(int angle)
 {
-	struct q6fsm_afe *q6fsm = g_fsm_afe;
 	struct param_hdr_v3 param_hdr;
 	fsm_rotation_info_t param = {0};
 	int ret;
 
-	if (q6fsm == NULL)
-		return -EINVAL;
 
 	if (!q6fsm_get_rx_status()) {
 		fsm_info("RX module isn't ready");
 		return -EINVAL;
 	}
 
-	if(q6fsm->angle == angle){
-		fsm_info("no need to rotation angle");
-		return 0;
-	}
-
 	if(angle == 0){
+		param.angle = 0;
 		param.ch_sequence[0] = 0;
 		param.ch_sequence[1] = 1;
-	}else if(angle == 90){
+	}else if(angle == 1){
+		param.angle = 180;
 		param.ch_sequence[0] = 1;
 		param.ch_sequence[1] = 0;
 	}else{
 		fsm_err("not support angle:%d",angle);
 		return  -EINVAL;
 	}
-	param.angle = angle;
+
 	param_hdr.module_id = AFE_MODULE_ID_FSADSP_RX;
 	param_hdr.instance_id = 0;
 	param_hdr.reserved = 0;
 	param_hdr.param_id = CAPI_V2_PARAM_FSADSP_ROTATION;
-	param_hdr.param_size = sizeof(int);
+	param_hdr.param_size = sizeof(fsm_rotation_info_t);
 	ret = q6fsm_afe_set_params(&param_hdr,
-		(uint8_t *)&param, sizeof(param));
+		(uint8_t *)&param, sizeof(fsm_rotation_info_t));
 	if (ret) {
 		fsm_err("Set params fail:%d", ret);
 		return ret;
@@ -358,16 +361,12 @@ int q6fsm_set_rotation(int angle)
 }
 EXPORT_SYMBOL(q6fsm_set_rotation);
 
-int q6fsm_get_rotation(int *angle)
+
+void q6fsm_fsm_check_scene_status(bool status)
 {
-	struct q6fsm_afe *q6fsm = g_fsm_afe;
-
-	*angle = q6fsm->angle;
-
-	return 0;
+    fsm_scene_status = status;
 }
-EXPORT_SYMBOL(q6fsm_get_rotation);
-
+EXPORT_SYMBOL(q6fsm_fsm_check_scene_status);
 
 #define PSY_DESC psy->desc
 
@@ -542,7 +541,7 @@ static int q6fsm_vbat_monitor_work(struct q6fsm_afe *q6fsm)
 
 	if (!q6fsm_get_rx_status()) {
 		fsm_info("RX module isn't ready");
-		return 0;
+		return -EINVAL;
 	}
 
 	if (q6fsm->bsg_version == 2) {
@@ -603,6 +602,10 @@ static void q6fsm_monitor_switch(bool enable)
 	if (enable) {
 		if (q6fsm->monitor_en)
 			return;
+		if(fsm_scene_status == false){
+			fsm_info("no need to start vbat monitor");
+			return;
+		}
 		q6fsm->monitor_en = true;
 		queue_delayed_work(q6fsm->vbat_wq, &q6fsm->vbat_work, 0);
 	} else {
