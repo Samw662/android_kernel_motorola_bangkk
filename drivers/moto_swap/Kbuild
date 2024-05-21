@@ -12,29 +12,11 @@ ZRAM_SRC = zram-5.10
 EXTRA_CFLAGS += -DCONFIG_ZRAM_5_10
 endif
 
-# add -Wall to try to catch everything we can.
-EXTRA_CFLAGS += -Wall
-EXTRA_CFLAGS += -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include
-
-ifneq ($(filter m y,$(CONFIG_HYBRIDSWAP_ZRAM)),)
-EXTRA_CFLAGS += -DCONFIG_HYBRIDSWAP_ZRAM
-endif
-
-ifneq ($(filter m y,$(CONFIG_HYBRIDSWAP_ZRAM_WRITEBACK)),)
-EXTRA_CFLAGS += -DCONFIG_HYBRIDSWAP_ZRAM_WRITEBACK
-endif
-
-ifneq ($(filter m y,$(CONFIG_HYBRIDSWAP)),)
-EXTRA_CFLAGS += -DCONFIG_HYBRIDSWAP
-endif
-
-ifneq ($(filter m y,$(CONFIG_HYBRIDSWAP_SWAPD)),)
-EXTRA_CFLAGS += -DCONFIG_HYBRIDSWAP_SWAPD
-endif
-
-ifneq ($(filter m y,$(CONFIG_HYBRIDSWAP_CORE)),)
-EXTRA_CFLAGS += -DCONFIG_HYBRIDSWAP_CORE
-endif
+ccflags-$(CONFIG_HYBRIDSWAP_ZRAM) += -DCONFIG_HYBRIDSWAP_ZRAM
+ccflags-$(CONFIG_HYBRIDSWAP_ZRAM_WRITEBACK) += -DCONFIG_HYBRIDSWAP_ZRAM_WRITEBACK
+ccflags-$(CONFIG_HYBRIDSWAP) += -DCONFIG_HYBRIDSWAP
+ccflags-$(CONFIG_HYBRIDSWAP_SWAPD) += -DCONFIG_HYBRIDSWAP_SWAPD
+ccflags-$(CONFIG_HYBRIDSWAP_CORE) += -DCONFIG_HYBRIDSWAP_CORE
 
 moto_swap-objs += $(ZRAM_SRC)/zram_drv.o
 moto_swap-objs += hybridswap/hybridswap_main.o
@@ -47,4 +29,4 @@ endif
 moto_swap-objs += hybridswap/hybridswap_swapd.o
 moto_swap-objs += $(ZRAM_SRC)/zcomp.o
 
-obj-m += moto_swap.o
+obj-$(CONFIG_MOTO_SWAP) += moto_swap.o

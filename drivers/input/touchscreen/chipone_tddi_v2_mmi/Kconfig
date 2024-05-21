@@ -1,0 +1,98 @@
+config TOUCHSCREEN_CHIPONE_V2_MMI
+	tristate "CHIPONE TDDI V2 Touchscreen"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_CHIPONE_V2_MMI_ESD
+	bool "ESD Detection"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+	  
+config INPUT_CHIPONE_V2_MMI_0FLASH_MMI_ENABLE_DOUBLE_TAP
+	bool "Enable Double Tap"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config INPUT_CHIPONE_V2_MMI_0FLASH_MMI_NOTIFY_TOUCH_STATE
+	bool "Notify Touch State"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config INPUT_CHIPONE_V2_MMI_PANEL_NOTIFICATIONS
+	bool "Panel Notifications"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config GTP_LAST_TIME
+	bool "GTP Last Time"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config INPUT_CHIPONE_BOARD_USES_DOUBLE_TAP_CTRL
+	bool "Double Tap Control"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config INPUT_TOUCHSCREEN_MMI
+	bool "Moto touchscreen mmi"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config INPUT_CHIPONE_STOWED_MODE_EN
+	bool "Enable Stowed mode"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_PM_BRL_SPI
+	bool "SPI interface for touchscreen"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.
+
+config CHIPONE_V2_MMI_CHECK_DEVICE_BOOTMODE
+	bool "Check Device Boot Mode"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.

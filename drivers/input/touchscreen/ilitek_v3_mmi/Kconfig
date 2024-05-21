@@ -1,0 +1,116 @@
+config TOUCHSCREEN_ILITEK_CHIPSET
+	tristate "ILITEK Touchscreen"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+	  
+config TOUCHSCREEN_ILITEK_ESD
+	bool "ESD Checking"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+	  
+config INPUT_ILI_ENABLE_DOUBLE_TAP
+	bool "Enable Double Tap"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config INPUT_ILI_BOARD_USES_DOUBLE_TAP_CTRL
+	bool "Double Tap Control"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config INPUT_ILI_SET_TOUCH_STATE
+	bool "Set Touch state"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config INPUT_ILI_PANEL_NOTIFICATIONS
+	bool "Panel notifications"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config ILITEK_RESUME_BY_DDI
+	bool "Resume by DDI"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config ILITEK_CHARGER
+	bool "ILITEK charger"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config ILITEK_MTK_CHECK_PANEL
+	bool "Check panel"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config ILITEK_MULTI_TP_MODULE
+	bool "Multi TP module"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config ILI_TOUCH_LAST_TIME
+	bool "Touch last time"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config INPUT_TOUCHSCREEN_MMI
+	bool "Moto touchscreen mmi"
+	default n
+	help
+	  Say Y here if you have a Chipone flash touchscreen connected
+	  to your system by SPI bus.
+
+	  If unsure, say N.
+
+config INPUT_ILI_STOWED_MODE_EN
+	bool "Enable Stowed mode"
+	depends on TOUCHSCREEN_CHIPONE_V2_MMI
+	default n
+	help
+	  Say Y here if you want to have ESD Detection support.
+
+	  If unsure, say N.

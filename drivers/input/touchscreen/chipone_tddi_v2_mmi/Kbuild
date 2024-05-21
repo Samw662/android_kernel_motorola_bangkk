@@ -1,56 +1,16 @@
-# add -Wall to try to catch everything we can.
-EXTRA_CFLAGS += -Wall
-EXTRA_CFLAGS += -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include \
-		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/chipone_tddi_fhd_mmi
-ifneq ($(filter m y,$(CONFIG_CHIPONE_ESD)),)
-EXTRA_CFLAGS += -DCONFIG_CTS_ESD_PROTECTION
-endif
+ccflags-$(CONFIG_TOUCHSCREEN_CHIPONE_V2_MMI_ESD) += -DCONFIG_CTS_ESD_PROTECTION
+#ccflags += -DCONFIG_CTS_I2C_HOST
+ccflags-$(CONFIG_INPUT_CHIPONE_V2_MMI_0FLASH_MMI_ENABLE_DOUBLE_TAP) += -DCHIPONE_SENSOR_EN
+ccflags-$(CONFIG_INPUT_CHIPONE_V2_MMI_0FLASH_MMI_NOTIFY_TOUCH_STATE) += -DCHIPONE_SET_TOUCH_STATE
+ccflags-$(CONFIG_INPUT_CHIPONE_V2_MMI_PANEL_NOTIFICATIONS) += -DCHIPONE_CONFIG_PANEL_NOTIFICATIONS
+ccflags-$(CONFIG_GTP_LAST_TIME) += -DCONFIG_GTP_LAST_TIME
+ccflags-$(CONFIG_INPUT_CHIPONE_BOARD_USES_DOUBLE_TAP_CTRL) += -DCONFIG_BOARD_USES_DOUBLE_TAP_CTRL
+ccflags-$(CONFIG_INPUT_TOUCHSCREEN_MMI) += -DCONFIG_INPUT_TOUCHSCREEN_MMI
+ccflags-$(CONFIG_INPUT_CHIPONE_STOWED_MODE_EN) += -DCTS_STOWED_MODE_EN
+ccflags-$(CONFIG_TOUCHSCREEN_PM_BRL_SPI) += -DTOUCHSCREEN_PM_BRL_SPI
+ccflags-$(CONFIG_CHIPONE_V2_MMI_CHECK_DEVICE_BOOTMODE) += -DCTS_CHECK_DEVICE_BOOTMODE
 
-#EXTRA_CFLAGS += -DCONFIG_CTS_I2C_HOST
-
-ifneq ($(filter m y,$(CONFIG_INPUT_CHIPONE_0FLASH_MMI_ENABLE_DOUBLE_TAP)),)
-	EXTRA_CFLAGS += -DCHIPONE_SENSOR_EN
-	KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../sensors/$(GKI_OBJ_MODULE_DIR)/Module.symvers
-endif
-
-ifneq ($(filter m y,$(CONFIG_INPUT_CHIPONE_0FLASH_MMI_NOTIFY_TOUCH_STATE)),)
-	EXTRA_CFLAGS += -DCHIPONE_SET_TOUCH_STATE
-endif
-
-ifneq ($(filter m y,$(CONFIG_INPUT_CHIPONE_PANEL_NOTIFICATIONS)),)
-EXTRA_CFLAGS += -DCHIPONE_CONFIG_PANEL_NOTIFICATIONS
-endif
-
-ifneq ($(filter m y,$(CONFIG_GTP_LAST_TIME)),)
-	EXTRA_CFLAGS += -DCONFIG_GTP_LAST_TIME
-endif
-
-ifneq ($(filter m y, $(CONFIG_BOARD_USES_DOUBLE_TAP_CTRL)),)
-	EXTRA_CFLAGS += -DCONFIG_BOARD_USES_DOUBLE_TAP_CTRL
-endif
-
-ifneq ($(filter m y,$(CONFIG_INPUT_TOUCHSCREEN_MMI)),)
-	EXTRA_CFLAGS += -DCONFIG_INPUT_TOUCHSCREEN_MMI
-endif
-
-ifeq ($(TARGET_BUILD_VARIANT),user)
-	EXTRA_CFLAGS += -DCFG_CTS_FOR_GKI
-endif
-
-ifneq ($(filter m y, $(CONFIG_STOWED_MODE_EN)),)
-	EXTRA_CFLAGS += -DCTS_STOWED_MODE_EN
-endif
-
-ifneq ($(filter m y,$(TOUCHSCREEN_PM_BRL_SPI)),)
-	EXTRA_CFLAGS += -DTOUCHSCREEN_PM_BRL_SPI
-endif
-
-ifneq ($(filter m y,$(CONFIG_CHIPONE_CHECK_DEVICE_BOOTMODE)),)
-	EXTRA_CFLAGS += -DCTS_CHECK_DEVICE_BOOTMODE
-endif
-
-#obj-$(CONFIG_TOUCHSCREEN_CHIPONE) += chipone-tddi.o
-obj-m += chipone_tddi_v2_mmi.o
+obj-$(CONFIG_TOUCHSCREEN_CHIPONE_V2_MMI) += chipone_tddi_v2_mmi.o
 
 chipone_tddi_v2_mmi-objs := cts_driver.o
 chipone_tddi_v2_mmi-objs += cts_core.o
@@ -66,5 +26,3 @@ chipone_tddi_v2_mmi-objs += cts_tool.o
 chipone_tddi_v2_mmi-objs += cts_sysfs.o
 chipone_tddi_v2_mmi-objs += cts_strerror.o
 chipone_tddi_v2_mmi-objs += cts_oem.o
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../touchscreen_mmi/$(GKI_OBJ_MODULE_DIR)/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_info/$(GKI_OBJ_MODULE_DIR)/Module.symvers

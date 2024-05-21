@@ -232,6 +232,10 @@ source "drivers/counter/Kconfig"
 
 source "drivers/moto_f_usbnet/Kconfig"
 
+source "drivers/moto_mm/Kconfig"
+
+source "drivers/moto_swap/Kconfig"
+
 source "drivers/mmi_annotate/Kconfig"
 
 source "drivers/mmi_info/Kconfig"
