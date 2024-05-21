@@ -37,9 +37,6 @@
 
 #include "zram_drv.h"
 #include "zram_drv_internal.h"
-#ifdef CONFIG_HYBRIDSWAP
-#include "../hybridswap/hybridswap.h"
-#endif
 
 static DEFINE_IDR(zram_index_idr);
 /* idr index must be protected */
