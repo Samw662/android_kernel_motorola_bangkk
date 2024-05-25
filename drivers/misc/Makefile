@@ -69,3 +69,4 @@ obj-$(CONFIG_MOTO_UTAGS) 	+= utag/
 obj-$(CONFIG_MMI_SYS_TEMP)	+= mmi_sys_temp/
 obj-$(CONFIG_LDO_VIBRATOR_MMI)	+= ldo_vibrator_mmi/
 obj-y				+= awinic/sarsensor/
+obj-$(CONFIG_SARSENSOR_SX937X) += sx937x/

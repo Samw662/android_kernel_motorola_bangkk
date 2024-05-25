@@ -193,3 +193,4 @@ obj-$(CONFIG_MOTO_F_USBNET)	+= moto_f_usbnet/
 obj-$(CONFIG_MOTO_MM)	+= moto_mm/
 obj-$(CONFIG_MOTO_SWAP)	+= moto_swap/
 obj-$(CONFIG_SENSORS_CLASS)	+= sensors/
+obj-$(CONFIG_WATCHDOGTEST)	+= watchdogtest/

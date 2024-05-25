@@ -915,6 +915,7 @@ config INPUT_STPMIC1_ONKEY
 	  module will be called stpmic1_onkey.
 
 source "drivers/input/misc/fpc_fps_mmi/Kconfig"
+source "drivers/input/misc/goodix_fod_mmi/Kconfig"
 source "drivers/input/misc/qpnp_power_on_mmi/Kconfig"
 source "drivers/input/misc/rbs_fod_mmi/Kconfig"
 endif
