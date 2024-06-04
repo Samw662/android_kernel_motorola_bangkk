@@ -630,6 +630,9 @@ int nilfs_empty_dir(struct inode *inode)
 		page = nilfs_get_page(inode, i);
 		if (IS_ERR(page))
 			continue;
+		kaddr = nilfs_get_page(inode, i, &page);
+		if (IS_ERR(kaddr))
+			return 0;
 
 		kaddr = page_address(page);
 		de = (struct nilfs_dir_entry *)kaddr;
