@@ -1967,6 +1967,21 @@ static inline void dst_negative_advice(struct sock *sk)
 			sk_tx_queue_clear(sk);
 			WRITE_ONCE(sk->sk_dst_pending_confirm, 0);
 		}
+	/* *** ANDROID FIXUP ***
+	 * See b/343727534 for more details why this typedef is needed here.
+	 * *** ANDROID FIXUP ***
+	 */
+	android_dst_ops_negative_advice_new_t negative_advice;
+
+	struct dst_entry *dst = __sk_dst_get(sk);
+
+	sk_rethink_txhash(sk);
+
+	if (dst && dst->ops->negative_advice)
+		dst->ops->negative_advice(sk, dst);
+	if (dst && dst->ops->negative_advice) {
+		negative_advice = (android_dst_ops_negative_advice_new_t)dst->ops->negative_advice;
+		negative_advice(sk, dst);
 	}
 }
 
