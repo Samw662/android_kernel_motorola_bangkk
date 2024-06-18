@@ -641,6 +641,7 @@ static int intel_hw_params(struct snd_pcm_substream *substream,
 	if (!dma->nr_ports) {
 		dev_err(dai->dev, "ports/resources not available\n");
 		return -EINVAL;
+
 	if (pcm)
 		pdi = sdw_cdns_alloc_pdi(cdns, &cdns->pcm, ch, dir, dai->id);
 	else
@@ -656,6 +657,17 @@ static int intel_hw_params(struct snd_pcm_substream *substream,
 		ret = -EINVAL;
 		goto error;
 	}
+
+	if (!pdi) {
+		ret = -EINVAL;
+		goto error;
+	}
+
+	/* do run-time configurations for SHIM, ALH and PDI/PORT */
+	intel_pdi_shim_configure(sdw, pdi);
+	intel_pdi_alh_configure(sdw, pdi);
+	sdw_cdns_config_stream(cdns, ch, dir, pdi);
+
 
 	/* do run-time configurations for SHIM, ALH and PDI/PORT */
 	intel_pdi_shim_configure(sdw, pdi);
