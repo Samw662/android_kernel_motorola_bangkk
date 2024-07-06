@@ -158,6 +158,8 @@ int check_compaction(unsigned long mem_free, unsigned long hugepage_size)
 		ksft_print_msg("ERROR: Less than 1/%d of memory is available\n"
 	if (compaction_index > 3) {
 		ksft_print_msg("ERROR: Less that 1/%d of memory is available\n"
+	if (compaction_index > 3) {
+		ksft_print_msg("ERROR: Less than 1/%d of memory is available\n"
 			       "as huge pages\n", compaction_index);
 		ksft_test_result_fail("No of huge pages allocated = %d\n", (atoi(nr_hugepages)));
 		goto close_fd;

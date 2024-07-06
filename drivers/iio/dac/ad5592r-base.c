@@ -435,6 +435,20 @@ static int ad5592r_read_raw(struct iio_dev *iio_dev,
 
 		*val *= ++mult;
 
+			return IIO_VAL_INT_PLUS_NANO;
+		}
+
+		mutex_lock(&st->lock);
+
+		if (chan->output)
+			mult = !!(st->cached_gp_ctrl &
+				AD5592R_REG_CTRL_DAC_RANGE);
+		else
+			mult = !!(st->cached_gp_ctrl &
+				AD5592R_REG_CTRL_ADC_RANGE);
+
+		*val *= ++mult;
+
 		*val2 = chan->scan_type.realbits;
 		ret = IIO_VAL_FRACTIONAL_LOG2;
 		break;
