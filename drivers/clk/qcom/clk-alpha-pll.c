@@ -4416,6 +4416,7 @@ int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		return -EINVAL;
 	}
 
+<<<<<<< HEAD
 	if (config->l)
 		regmap_write(regmap, PLL_L_VAL(pll), config->l);
 
@@ -4456,6 +4457,11 @@ int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 		regmap_write(regmap,  PLL_TEST_CTL_U(pll),
 						config->test_ctl_hi_val);
 	return 0;
+=======
+	return regmap_update_bits(regmap, PLL_USER_CTL(pll),
+				  PLL_POST_DIV_MASK(pll) << pll->post_div_shift,
+				  val << pll->post_div_shift);
+>>>>>>> 0af2a13a37c9... clk: qcom: clk-alpha-pll: Fix the trion pll postdiv set rate API
 }
 EXPORT_SYMBOL(clk_agera_pll_configure);
 
