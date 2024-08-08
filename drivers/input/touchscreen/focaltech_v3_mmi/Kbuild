@@ -4,7 +4,7 @@ EXTRA_CFLAGS += -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include \
 		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/focaltech_v3_mmi \
 		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/focaltech_v3_mmi/include
 
-obj-m := focaltech_v3_mmi.o
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_V3_MMI) := focaltech_v3_mmi.o
 focaltech_v3_mmi-objs += focaltech_core.o
 focaltech_v3_mmi-objs += focaltech_ex_fun.o
 focaltech_v3_mmi-objs += focaltech_ex_mode.o

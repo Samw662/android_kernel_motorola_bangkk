@@ -117,6 +117,7 @@ obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_dsx/
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX)	+= nt36xxx/
 obj-$(CONFIG_TOUCHSCREEN_CHIPONE_V2_MMI)	+= chipone_tddi_v2_mmi/
 obj-$(CONFIG_TOUCHSCREEN_ILITEK_CHIPSET)	+= ilitek_v3_mmi/
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_V3_MMI)	+= focaltech_v3_mmi/
 obj-$(CONFIG_TOUCHSCREEN_FTS_V3)	+= focaltech_touch_v3/
 obj-$(CONFIG_TOUCHSCREEN_MMI)	+= touchscreen_mmi/
 obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL)	+= goodix_berlin_mmi/
