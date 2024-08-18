@@ -9,11 +9,6 @@ config TOUCHSCREEN_FTS_V3
       Say Y here if you have Focaltech touch panel.
       If unsure, say N.
 
-config TOUCHSCREEN_FTS_DIRECTORY_V3
-    string "Focaltech ts v3 directory name"
-    default "focaltech_touch_v3"
-    depends on TOUCHSCREEN_FTS_V3
-    
 config INPUT_FOCALTECH_V3_MMI_IC_NAME_FT3681
         bool "Focaltech V3 Chip FT3681"
         depends on TOUCHSCREEN_FTS_V3

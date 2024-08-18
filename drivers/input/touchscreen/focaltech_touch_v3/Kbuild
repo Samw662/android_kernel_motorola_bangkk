@@ -5,7 +5,7 @@ EXTRA_CFLAGS += -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include \
 		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/focaltech_touch_v3/include \
 		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/focaltech_touch_v3/focaltech_test
 
-obj-m := focaltech_v3.o
+obj-$(CONFIG_TOUCHSCREEN_FTS_V3) := focaltech_v3.o
 focaltech_v3-objs += focaltech_core.o
 focaltech_v3-objs += focaltech_ex_fun.o
 focaltech_v3-objs += focaltech_ex_mode.o
@@ -52,35 +52,13 @@ ifneq ($(filter m y, $(CONFIG_FTS_NOISE_TEST_P2P)),)
 	EXTRA_CFLAGS += -DCONFIG_FTS_NOISE_TEST_P2P
 endif
 
-ifneq ($(filter m y, $(CONFIG_FTS_COMPATIBLE_WITH_GKI)),)
-	EXTRA_CFLAGS += -DCONFIG_FTS_COMPATIBLE_WITH_GKI
-endif
-
-ifneq ($(filter m y, $(CONFIG_FTS_DOUBLE_TAP_CONTROL)),)
-	EXTRA_CFLAGS += -DCONFIG_FTS_DOUBLE_TAP_CONTROL
-endif
-
-ifneq ($(filter m y, $(CONFIG_FTS_SUPPORT_HIGH_RESOLUTION)),)
-	EXTRA_CFLAGS += -DCONFIG_FTS_SUPPORT_HIGH_RESOLUTION
-endif
-
-ifneq ($(filter m y, $(CONFIG_FTS_VDD_GPIO_CONTROL)),)
-	EXTRA_CFLAGS += -DCONFIG_FTS_VDD_GPIO_CONTROL
-endif
+#EXTRA_CFLAGS += -DCONFIG_FTS_COMPATIBLE_WITH_GKI
+#EXTRA_CFLAGS += -DCONFIG_FTS_DOUBLE_TAP_CONTROL
+EXTRA_CFLAGS += -DCONFIG_FTS_SUPPORT_HIGH_RESOLUTION
+EXTRA_CFLAGS += -DCONFIG_FTS_VDD_GPIO_CONTROL
 
 ifneq ($(filter m y,$(CONFIG_FTS_LAST_TIME)),)
     EXTRA_CFLAGS += -DCONFIG_FTS_LAST_TIME
 endif
 
-ifneq ($(findstring _factory,$(TARGET_PRODUCT)),)
-USE_TARGET_PRODUCT := $(strip $(subst _factory,, $(TARGET_PRODUCT)))
-else
-USE_TARGET_PRODUCT := $(TARGET_PRODUCT)
-endif
-
-ifneq ($(filter bangkk%, $(USE_TARGET_PRODUCT)), )
-        EXTRA_CFLAGS += -DPRODUCT_BANGKK
-endif
-
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/../../kernel/msm-$(MODULE_KERNEL_VERSION)/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_info/$(GKI_OBJ_MODULE_DIR)/Module.symvers
+EXTRA_CFLAGS += -DPRODUCT_BANGKK

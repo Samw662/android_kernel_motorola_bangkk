@@ -1337,9 +1337,11 @@ source "drivers/input/touchscreen/chipone_tddi_v2_mmi/Kconfig"
 
 source "drivers/input/touchscreen/ilitek_v3_mmi/Kconfig"
 
-source "drivers/input/touchscreen/focaltech_touch_v3/Kconfig"
+source "drivers/input/touchscreen/focaltech_v2_mmi/Kconfig"
 
 source "drivers/input/touchscreen/focaltech_v3_mmi/Kconfig"
+
+source "drivers/input/touchscreen/focaltech_touch_v3/Kconfig"
 
 source "drivers/input/touchscreen/touchscreen_mmi/Kconfig"
 
