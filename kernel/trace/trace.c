@@ -3494,7 +3494,13 @@ void tracing_iter_reset(struct trace_iterator *iter, int cpu)
 		if (ts >= iter->trace_buffer->time_start)
 			break;
 		entries++;
+<<<<<<< HEAD
 		ring_buffer_read(buf_iter, NULL);
+=======
+		ring_buffer_iter_advance(buf_iter);
+		/* This could be a big loop */
+		cond_resched();
+>>>>>>> 7195d0498d1c... tracing: Avoid possible softlockup in tracing_iter_reset()
 	}
 
 	per_cpu_ptr(iter->trace_buffer->data, cpu)->skipped_entries = entries;
