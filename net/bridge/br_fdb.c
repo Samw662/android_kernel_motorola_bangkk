@@ -1143,12 +1143,19 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 			modified = true;
 		}
 
+<<<<<<< HEAD
 		if (fdb->added_by_external_learn) {
 			/* Refresh entry */
 			fdb->used = jiffies;
 		} else if (!fdb->added_by_user) {
 			/* Take over SW learned entry */
 			fdb->added_by_external_learn = 1;
+=======
+		if (test_and_set_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags)) {
+			/* Refresh entry */
+			fdb->used = jiffies;
+		} else {
+>>>>>>> 608597018f2a... net: bridge: br_fdb_external_learn_add(): always set EXT_LEARN
 			modified = true;
 		}
 
