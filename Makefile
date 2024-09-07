@@ -780,7 +780,7 @@ endif
 
 ifdef CONFIG_INLINE_OPTIMIZATION
 ifdef CONFIG_CC_IS_CLANG
-KBUILD_CFLAGS	+= -mllvm -inline-threshold=600
+KBUILD_CFLAGS	+= -mllvm -inline-threshold=1000
 KBUILD_CFLAGS	+= -mllvm -inlinehint-threshold=750
 else ifdef CONFIG_CC_IS_GCC
 KBUILD_CFLAGS	+= --param max-inline-insns-single=600
