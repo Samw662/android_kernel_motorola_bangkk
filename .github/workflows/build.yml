@@ -33,6 +33,11 @@ jobs:
           bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S=11032023
           echo 'Done'
 
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 12
+
       - name: Run build
         run: |
           DEVICE=${{matrix.device}} ./build.sh
