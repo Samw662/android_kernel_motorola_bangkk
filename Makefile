@@ -2,10 +2,14 @@
 VERSION = 5
 PATCHLEVEL = 4
 <<<<<<< HEAD
+<<<<<<< HEAD
 SUBLEVEL = 268
 =======
 SUBLEVEL = 284
 >>>>>>> 661f109c0574... Linux 5.4.284
+=======
+SUBLEVEL = 284
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 EXTRAVERSION =
 NAME = Kleptomaniac Octopus
 

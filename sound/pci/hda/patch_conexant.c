@@ -220,7 +220,10 @@ enum {
 =======
 	CXT_PINCFG_SWS_JS201D,
 	CXT_PINCFG_TOP_SPEAKER,
+<<<<<<< HEAD
 >>>>>>> b7cec87c6219... ALSA: hda/conexant: Add pincfg quirk to enable top speakers on Sirius devices
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 };
 
 /* for hda_fixup_thinkpad_acpi() */
@@ -873,7 +876,10 @@ static const struct hda_fixup cxt_fixups[] = {
 			{ }
 		},
 	},
+<<<<<<< HEAD
 >>>>>>> b7cec87c6219... ALSA: hda/conexant: Add pincfg quirk to enable top speakers on Sirius devices
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 };
 
 static const struct snd_pci_quirk cxt5045_fixups[] = {
@@ -990,7 +996,10 @@ static const struct hda_model_fixup cxt5066_fixup_models[] = {
 =======
 	{ .id = CXT_PINCFG_SWS_JS201D, .name = "sws-js201d" },
 	{ .id = CXT_PINCFG_TOP_SPEAKER, .name = "sirius-top-speaker" },
+<<<<<<< HEAD
 >>>>>>> b7cec87c6219... ALSA: hda/conexant: Add pincfg quirk to enable top speakers on Sirius devices
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 	{}
 };
 

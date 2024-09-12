@@ -150,6 +150,7 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
 	int timeout = 50;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	struct cx82310_priv *priv;
 	u8 addr[ETH_ALEN];
@@ -160,6 +161,10 @@ static int cx82310_bind(struct usbnet *dev, struct usb_interface *intf)
 =======
 	struct cx82310_priv *priv;
 >>>>>>> c1b187a86a17... cx82310_eth: re-enable ethernet mode after router reboot
+=======
+	struct cx82310_priv *priv;
+	u8 addr[ETH_ALEN];
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 
 	/* avoid ADSL modems - continue only if iProduct is "USB NET CARD" */
 	if (usb_string(udev, udev->descriptor.iProduct, buf, sizeof(buf)) > 0

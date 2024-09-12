@@ -1384,7 +1384,10 @@ static const struct usb_device_id products[] = {
 =======
 	{QMI_QUIRK_SET_DTR(0x33f8, 0x0104, 4)}, /* Rolling RW101 RMNET */
 	{QMI_FIXED_INTF(0x2dee, 0x4d22, 5)},    /* MeiG Smart SRM825L */
+<<<<<<< HEAD
 >>>>>>> e35c2b95fb44... net: usb: qmi_wwan: add MeiG Smart SRM825L
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 
 	/* 4. Gobi 1000 devices */
 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */

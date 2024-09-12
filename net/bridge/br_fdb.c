@@ -77,6 +77,7 @@ static inline int has_expired(const struct net_bridge *br,
 {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return !fdb->is_static && !fdb->added_by_external_learn &&
 		time_before_eq(fdb->updated + hold_time(br), jiffies);
 =======
@@ -89,6 +90,11 @@ static inline int has_expired(const struct net_bridge *br,
 	       !fdb->added_by_external_learn &&
 	       time_before_eq(fdb->updated + hold_time(br), jiffies);
 >>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
+=======
+	return !test_bit(BR_FDB_STATIC, &fdb->flags) &&
+	       !test_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags) &&
+	       time_before_eq(fdb->updated + hold_time(br), jiffies);
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 }
 
 static void fdb_rcu_free(struct rcu_head *head)
@@ -268,6 +274,7 @@ void br_fdb_find_delete_local(struct net_bridge *br,
 	f = br_fdb_find(br, addr, vid);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	if (f && f->is_local && !f->added_by_user && f->dst == p)
 =======
 	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
@@ -277,6 +284,10 @@ void br_fdb_find_delete_local(struct net_bridge *br,
 	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
 	    !f->added_by_user && f->dst == p)
 >>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
+=======
+	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+	    !test_bit(BR_FDB_ADDED_BY_USER, &f->flags) && f->dst == p)
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 		fdb_delete_local(br, p, f);
 	spin_unlock_bh(&br->hash_lock);
 }
@@ -293,6 +304,7 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 	hlist_for_each_entry(f, &br->fdb_list, fdb_node) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if (f->dst == p && f->is_local && !f->added_by_user) {
 =======
 		if (f->dst == p && test_bit(BR_FDB_LOCAL, &f->flags) &&
@@ -302,6 +314,10 @@ void br_fdb_changeaddr(struct net_bridge_port *p, const unsigned char *newaddr)
 		if (f->dst == p && test_bit(BR_FDB_LOCAL, &f->flags) &&
 		    !f->added_by_user) {
 >>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
+=======
+		if (f->dst == p && test_bit(BR_FDB_LOCAL, &f->flags) &&
+		    !test_bit(BR_FDB_ADDED_BY_USER, &f->flags)) {
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 			/* delete old one */
 			fdb_delete_local(br, p, f);
 
@@ -344,6 +360,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 	f = br_fdb_find(br, br->dev->dev_addr, 0);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	if (f && f->is_local && !f->dst && !f->added_by_user)
 =======
 	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
@@ -353,6 +370,10 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
 	    !f->dst && !f->added_by_user)
 >>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
+=======
+	if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+	    !f->dst && !test_bit(BR_FDB_ADDED_BY_USER, &f->flags))
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 		fdb_delete_local(br, NULL, f);
 
 	fdb_insert(br, NULL, newaddr, 0);
@@ -369,6 +390,7 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 		f = br_fdb_find(br, br->dev->dev_addr, v->vid);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if (f && f->is_local && !f->dst && !f->added_by_user)
 =======
 		if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
@@ -378,6 +400,10 @@ void br_fdb_change_mac_address(struct net_bridge *br, const u8 *newaddr)
 		if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
 		    !f->dst && !f->added_by_user)
 >>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
+=======
+		if (f && test_bit(BR_FDB_LOCAL, &f->flags) &&
+		    !f->dst && !test_bit(BR_FDB_ADDED_BY_USER, &f->flags))
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 			fdb_delete_local(br, NULL, f);
 		fdb_insert(br, NULL, newaddr, v->vid);
 	}
@@ -404,6 +430,7 @@ void br_fdb_cleanup(struct work_struct *work)
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if (f->is_static || f->added_by_external_learn)
 =======
 		if (test_bit(BR_FDB_STATIC, &f->flags) ||
@@ -413,6 +440,10 @@ void br_fdb_cleanup(struct work_struct *work)
 		if (test_bit(BR_FDB_STATIC, &f->flags) ||
 		    f->added_by_external_learn)
 >>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
+=======
+		if (test_bit(BR_FDB_STATIC, &f->flags) ||
+		    test_bit(BR_FDB_ADDED_BY_EXT_LEARN, &f->flags))
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 			continue;
 		this_timer = f->updated + delay;
 		if (time_after(this_timer, now)) {
@@ -538,6 +569,7 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		fe->is_local = f->is_local;
 =======
 		fe->is_local = test_bit(BR_FDB_LOCAL, &f->flags);
@@ -547,6 +579,10 @@ int br_fdb_fillbuf(struct net_bridge *br, void *buf,
 		fe->is_local = test_bit(BR_FDB_LOCAL, &f->flags);
 		if (!test_bit(BR_FDB_STATIC, &f->flags))
 >>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
+=======
+		fe->is_local = test_bit(BR_FDB_LOCAL, &f->flags);
+		if (!test_bit(BR_FDB_STATIC, &f->flags))
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 			fe->ageing_timer_value = jiffies_delta_to_clock_t(jiffies - f->updated);
 		++fe;
 		++num;
@@ -572,6 +608,7 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 		fdb->key.vlan_id = vid;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		fdb->is_local = is_local;
 =======
 		fdb->flags = 0;
@@ -582,11 +619,14 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 		fdb->added_by_user = 0;
 		fdb->added_by_external_learn = 0;
 =======
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 		fdb->flags = 0;
 		if (is_local)
 			set_bit(BR_FDB_LOCAL, &fdb->flags);
 		if (is_static)
 			set_bit(BR_FDB_STATIC, &fdb->flags);
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
@@ -596,6 +636,8 @@ static struct net_bridge_fdb_entry *fdb_create(struct net_bridge *br,
 >>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
 		fdb->added_by_external_learn = 0;
 >>>>>>> a021356aca3b... net: bridge: fdb: convert added_by_user to bitops
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 		fdb->offloaded = 0;
 		fdb->updated = fdb->used = jiffies;
 		if (rhashtable_lookup_insert_fast(&br->fdb_hash_tbl,
@@ -943,6 +985,7 @@ static int fdb_add_entry(struct net_bridge *br, struct net_bridge_port *source,
 		if (state & NUD_PERMANENT) {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 			fdb->is_local = 1;
 =======
 			set_bit(BR_FDB_LOCAL, &fdb->flags);
@@ -981,6 +1024,18 @@ static int fdb_add_entry(struct net_bridge *br, struct net_bridge_port *source,
 			clear_bit(BR_FDB_LOCAL, &fdb->flags);
 			if (test_and_clear_bit(BR_FDB_STATIC, &fdb->flags))
 >>>>>>> 7d3a9267d51f... net: bridge: fdb: convert is_static to bitops
+=======
+			set_bit(BR_FDB_LOCAL, &fdb->flags);
+			if (!test_and_set_bit(BR_FDB_STATIC, &fdb->flags))
+				fdb_add_hw_addr(br, addr);
+		} else if (state & NUD_NOARP) {
+			clear_bit(BR_FDB_LOCAL, &fdb->flags);
+			if (!test_and_set_bit(BR_FDB_STATIC, &fdb->flags))
+				fdb_add_hw_addr(br, addr);
+		} else {
+			clear_bit(BR_FDB_LOCAL, &fdb->flags);
+			if (test_and_clear_bit(BR_FDB_STATIC, &fdb->flags))
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 				fdb_del_hw_addr(br, addr);
 		}
 
@@ -1252,6 +1307,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 		if (swdev_notify)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 			fdb->added_by_user = 1;
 =======
 			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
@@ -1261,6 +1317,10 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
 		set_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags);
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
+=======
+			set_bit(BR_FDB_ADDED_BY_USER, &fdb->flags);
+		set_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags);
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 		fdb_notify(br, fdb, RTM_NEWNEIGH, swdev_notify);
 	} else {
 		fdb->updated = jiffies;
@@ -1270,6 +1330,7 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 			modified = true;
 		}
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 		if (fdb->added_by_external_learn) {
@@ -1291,6 +1352,12 @@ int br_fdb_external_learn_add(struct net_bridge *br, struct net_bridge_port *p,
 =======
 			set_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags);
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
+=======
+		if (test_and_set_bit(BR_FDB_ADDED_BY_EXT_LEARN, &fdb->flags)) {
+			/* Refresh entry */
+			fdb->used = jiffies;
+		} else {
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 			modified = true;
 		}
 

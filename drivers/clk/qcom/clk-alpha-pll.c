@@ -4461,7 +4461,10 @@ int clk_agera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 	return regmap_update_bits(regmap, PLL_USER_CTL(pll),
 				  PLL_POST_DIV_MASK(pll) << pll->post_div_shift,
 				  val << pll->post_div_shift);
+<<<<<<< HEAD
 >>>>>>> 0af2a13a37c9... clk: qcom: clk-alpha-pll: Fix the trion pll postdiv set rate API
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 }
 EXPORT_SYMBOL(clk_agera_pll_configure);
 

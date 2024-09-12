@@ -6496,6 +6496,13 @@ static void igb_tsync_interrupt(struct igb_adapter *adapter)
 		wr32(E1000_TSICR, tsicr & mask);
 	}
 
+	if (hw->mac.type == e1000_82580) {
+		/* 82580 has a hardware bug that requires an explicit
+		 * write to clear the TimeSync interrupt cause.
+		 */
+		wr32(E1000_TSICR, tsicr & mask);
+	}
+
 	if (tsicr & TSINTR_SYS_WRAP) {
 		event.type = PTP_CLOCK_PPS;
 		if (adapter->ptp_caps.pps)

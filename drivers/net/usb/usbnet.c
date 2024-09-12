@@ -1729,6 +1729,7 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	strcpy (net->name, "usb%d");
 =======
 	strscpy(net->name, "usb%d", sizeof(net->name));
@@ -1745,6 +1746,9 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 	strscpy(net->name, "usb%d", sizeof(net->name));
 	eth_hw_addr_set(net, node_id);
 >>>>>>> f3c54d6e06f9... net: usb: don't write directly to netdev->dev_addr
+=======
+	strscpy(net->name, "usb%d", sizeof(net->name));
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 
 	/* rx and tx sides can use different message sizes;
 	 * bind() should set rx_urb_size in that case.

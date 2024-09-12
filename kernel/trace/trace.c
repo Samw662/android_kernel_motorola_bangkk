@@ -3496,6 +3496,7 @@ void tracing_iter_reset(struct trace_iterator *iter, int cpu)
 		entries++;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 		ring_buffer_read(buf_iter, NULL);
 =======
 		ring_buffer_iter_advance(buf_iter);
@@ -3505,6 +3506,11 @@ void tracing_iter_reset(struct trace_iterator *iter, int cpu)
 =======
 		ring_buffer_iter_advance(buf_iter);
 >>>>>>> 2feb2c351c2c... ring-buffer: Rename ring_buffer_read() to read_buffer_iter_advance()
+=======
+		ring_buffer_iter_advance(buf_iter);
+		/* This could be a big loop */
+		cond_resched();
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 	}
 
 	per_cpu_ptr(iter->trace_buffer->data, cpu)->skipped_entries = entries;

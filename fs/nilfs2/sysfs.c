@@ -902,18 +902,24 @@ ssize_t nilfs_dev_uuid_show(struct nilfs_dev_attr *attr,
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return snprintf(buf, PAGE_SIZE, "%pUb\n", sbp[0]->s_uuid);
 =======
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 	down_read(&nilfs->ns_sem);
 	raw_sb = nilfs->ns_sbp[0];
 	len = sysfs_emit(buf, "%pUb\n", raw_sb->s_uuid);
 	up_read(&nilfs->ns_sem);
 
 	return len;
+<<<<<<< HEAD
 >>>>>>> ba97ba173f96... nilfs2: protect references to superblock parameters exposed in sysfs
 =======
 	return sysfs_emit(buf, "%pUb\n", sbp[0]->s_uuid);
 >>>>>>> 9dffb618a6c4... nilfs2: replace snprintf in show functions with sysfs_emit
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 }
 
 static

@@ -177,11 +177,15 @@ struct net_bridge_vlan_group {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 /* bridge fdb flags */
 enum {
 	BR_FDB_LOCAL,
 	BR_FDB_STATIC,
+<<<<<<< HEAD
 <<<<<<< HEAD
 	BR_FDB_STICKY,
 <<<<<<< HEAD
@@ -204,6 +208,13 @@ enum {
 };
 
 >>>>>>> 3e28497e4d34... net: bridge: fdb: convert is_local to bitops
+=======
+	BR_FDB_STICKY,
+	BR_FDB_ADDED_BY_USER,
+	BR_FDB_ADDED_BY_EXT_LEARN,
+};
+
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 struct net_bridge_fdb_key {
 	mac_addr addr;
 	u16 vlan_id;
@@ -215,6 +226,7 @@ struct net_bridge_fdb_entry {
 
 	struct net_bridge_fdb_key	key;
 	struct hlist_node		fdb_node;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -246,6 +258,10 @@ struct net_bridge_fdb_entry {
 	unsigned long			flags;
 	unsigned char			offloaded:1;
 >>>>>>> 8c72b1cd0ce9... net: bridge: fdb: convert added_by_external_learn to use bitops
+=======
+	unsigned long			flags;
+	unsigned char			offloaded:1;
+>>>>>>> 97009b56c642... Merge 5.4.284 into android11-5.4-lts
 
 	/* write-heavy members should not affect lookups */
 	unsigned long			updated ____cacheline_aligned_in_smp;
