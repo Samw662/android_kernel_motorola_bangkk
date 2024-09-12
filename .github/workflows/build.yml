@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        device: [g34]
+        device: [g34, g84]
     name: "🚧 Build for ${{matrix.device}}"
 
     steps:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Run build
         run: |
-          DEVICE=${{matrix.device}} ./build.sh
+          DEVICE=${{matrix.device}} KSU=1 ./build.sh
 
       - name: Upload kernel
         uses: actions/upload-artifact@v4

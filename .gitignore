@@ -159,3 +159,9 @@ Android.bp
 # Extra Stuff
 #
 toolchain/
+AnyKernel3/Image
+AnyKernel3/config
+AnyKernel3/dtb
+AnyKernel3/dtbo.img
+AnyKernel3/*.zip
+AnyKernel3/modules/*
