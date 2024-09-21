@@ -39,7 +39,10 @@
 #include <linux/bitops.h>
 #include <linux/init_task.h>
 #include <linux/uaccess.h>
+
+#ifdef CONFIG_SUS_FS
 #include <linux/suspicious.h>
+#endif
 
 #include "internal.h"
 #include "mount.h"
@@ -3661,9 +3664,11 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 	int flags = op->lookup_flags;
 	struct file *filp;
 
+#ifdef CONFIG_SUS_FS
 	if (suspicious_path(pathname)) {
 		return ERR_PTR(-ENOENT);
 	}
+#endif
 	
 	set_nameidata(&nd, dfd, pathname);
 	filp = path_openat(&nd, op, flags | LOOKUP_RCU);
@@ -3850,6 +3855,7 @@ long do_mknodat(int dfd, const char __user *filename, umode_t mode,
 	struct dentry *dentry;
 	struct path path;
 	int error;
+#ifdef CONFIG_SUS_FS
 	struct filename* fname;
 	int status;
 
@@ -3860,6 +3866,7 @@ long do_mknodat(int dfd, const char __user *filename, umode_t mode,
 	if (status) {
 		return -ENOENT;
 	}
+#endif
 
 	unsigned int lookup_flags = 0;
 
@@ -3942,6 +3949,7 @@ long do_mkdirat(int dfd, const char __user *pathname, umode_t mode)
 	struct path path;
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+#ifdef CONFIG_SUS_FS
 	struct filename* fname;
 	int status;
 
@@ -3952,6 +3960,7 @@ long do_mkdirat(int dfd, const char __user *pathname, umode_t mode)
 	if (status) {
 		return -ENOENT;
 	}
+#endif
 
 retry:
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
@@ -4030,9 +4039,11 @@ long do_rmdir(int dfd, const char __user *pathname)
 	int type;
 	unsigned int lookup_flags = 0;
 
+#ifdef CONFIG_SUS_FS
 	if (suspicious_path(name)) {
 		return -ENOENT;
 	}
+#endif
 retry:
 	name = filename_parentat(dfd, getname(pathname), lookup_flags,
 				&path, &last, &type);
@@ -4271,6 +4282,7 @@ long do_symlinkat(const char __user *oldname, int newdfd,
 	struct dentry *dentry;
 	struct path path;
 	unsigned int lookup_flags = 0;
+#ifdef CONFIG_SUS_FS
 	struct filename* fname;
 	int status;
 
@@ -4289,6 +4301,7 @@ long do_symlinkat(const char __user *oldname, int newdfd,
 	if (status) {
 		return -ENOENT;
 	}
+#endif
 	
 	from = getname(oldname);
 	if (IS_ERR(from))
@@ -4420,6 +4433,7 @@ int do_linkat(int olddfd, const char __user *oldname, int newdfd,
 	struct inode *delegated_inode = NULL;
 	int how = 0;
 	int error;
+#ifdef CONFIG_SUS_FS
 	struct filename* fname;
 	int status;
 
@@ -4438,6 +4452,7 @@ int do_linkat(int olddfd, const char __user *oldname, int newdfd,
 	if (status) {
 		return -ENOENT;
 	}
+#endif
 	
 	if ((flags & ~(AT_SYMLINK_FOLLOW | AT_EMPTY_PATH)) != 0)
 		return -EINVAL;
@@ -4700,6 +4715,7 @@ static int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
 	unsigned int lookup_flags = 0, target_flags = LOOKUP_RENAME_TARGET;
 	bool should_retry = false;
 	int error;
+#ifdef CONFIG_SUS_FS
 	struct filename* fname;
 	int status;
 
@@ -4718,6 +4734,7 @@ static int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
 	if (status) {
 		return -ENOENT;
 	}
+#endif
 	
 	if (flags & ~(RENAME_NOREPLACE | RENAME_EXCHANGE | RENAME_WHITEOUT))
 		return -EINVAL;
@@ -4740,10 +4757,12 @@ retry:
 		goto exit;
 	}
 
+#ifdef CONFIG_SUS_FS
 	if (suspicious_path(from)) {
 		error = -ENOENT;
 		goto exit;
 	}
+#endif
 	
 	to = filename_parentat(newdfd, getname(newname), lookup_flags,
 				&new_path, &new_last, &new_type);
@@ -4752,10 +4771,12 @@ retry:
 		goto exit1;
 	}
 	
+#ifdef CONFIG_SUS_FS
 	if (suspicious_path(to)) {
 		error = -ENOENT;
 		goto exit;
 	}
+#endif
 
 	error = -EXDEV;
 	if (old_path.mnt != new_path.mnt)

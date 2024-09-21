@@ -281,6 +281,11 @@ source "fs/sysv/Kconfig"
 source "fs/ufs/Kconfig"
 source "fs/erofs/Kconfig"
 
+config SUS_FS
+	bool "susfs"
+	default y
+	depends on KSU
+
 endif # MISC_FILESYSTEMS
 
 menuconfig NETWORK_FILESYSTEMS
