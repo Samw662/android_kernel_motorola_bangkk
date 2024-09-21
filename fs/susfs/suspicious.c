@@ -10,7 +10,7 @@
 #include <linux/namei.h>
 #include <linux/suspicious.h>
 
-#include "mount.h"
+#include "../mount.h"
 
 #define uid_matches() (getuid() >= 2000)
 
