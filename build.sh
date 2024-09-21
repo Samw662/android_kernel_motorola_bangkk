@@ -29,6 +29,18 @@ exit 1
 fi
 export KSU
 
+if [[ -z "$T" || "$T" = "0" ]]; then
+T=0
+export testbld=
+elif [ "$T" = "1" ]; then
+CONFIG_TEST=test.config
+export testbld=-test
+else
+echo "Error: Set KSU to 0 or 1 to build"
+exit 1
+fi
+export T
+
 if [[ -z "$1" || "$1" = "-c" ]]; then
 echo "Clean Build"
 rm -rf out
@@ -57,7 +69,7 @@ LLVM_NM='${LLVM_DIR}/llvm-nm'
 LLVM=1
 '
 
-make ${ARGS} O=out ${DEVICE}_defconfig moto.config $CONFIG_KSU
+make ${ARGS} O=out ${DEVICE}_defconfig moto.config $CONFIG_KSU $CONFIG_TEST
 make ${ARGS} O=out -j$(nproc)
 
 [ ! -e "out/arch/arm64/boot/Image" ] && \
@@ -99,4 +111,4 @@ done
 
 #Zip
 cd ${AnyKernel3}
-zip -r9 O_KERNEL.${kmod}_${DEVICE}${KSUSTAT}-${TIME}.zip * -x .git README.md *placeholder
+zip -r9 O_KERNEL.${kmod}_${DEVICE}${KSUSTAT}${testbld}-${TIME}.zip * -x .git README.md *placeholder
