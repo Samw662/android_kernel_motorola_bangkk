@@ -30,7 +30,7 @@ jobs:
           mkdir -p toolchain
           cd toolchain
           echo 'Download antman and sync'
-          bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S=11032023
+          bash <(curl -s "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman") -S=05012024
           echo 'Done'
 
       - name: Set Swap Space
