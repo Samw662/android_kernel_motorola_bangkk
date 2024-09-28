@@ -789,6 +789,9 @@ else
 LDFLAGS += -O2
 endif
 LDFLAGS += --lto-O2
+else
+LDFLAGS += -O2
+endif
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
