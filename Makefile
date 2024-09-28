@@ -783,7 +783,11 @@ endif
 endif
 
 ifdef CONFIG_LD_IS_LLD
+ifdef CONFIG_LTO_CLANG
 LDFLAGS += --lto-O2
+else
+LDFLAGS += -O2
+endif
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
