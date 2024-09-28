@@ -782,6 +782,10 @@ KBUILD_CFLAGS	+= --param inline-unit-growth=60
 endif
 endif
 
+ifdef CONFIG_LD_IS_LLD
+LDFLAGS += --lto-O2
+endif
+
 # Tell gcc to never replace conditional load with a non-conditional one
 KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 KBUILD_CFLAGS	+= $(call cc-option,-fno-allow-store-data-races)
