@@ -1,55 +1,21 @@
 #!/bin/bash
-[ ! -e "KernelSU/kernel/setup.sh" ] && git submodule init && git submodule update
 [ ! -d "toolchain" ] && echo  "installing toolchain..." && bash init_clang.sh
 
-export KBUILD_BUILD_USER=ghazzor
-
+# Basic
+export KBUILD_BUILD_USER=Samw662
 PATH=$PWD/toolchain/bin:$PATH
 export LLVM_DIR=$PWD/toolchain/bin
 export LLVM=1
 export AnyKernel3=AnyKernel3
 export TIME="$(date "+%Y%m%d")"
 export modpath=${AnyKernel3}/modules/vendor/lib/modules
-
 export ARCH=arm64
 
+# Export bangkk device
 if [ -z "$DEVICE" ]; then
-export DEVICE=g34
+export DEVICE=bangkk
 fi
-
-if [[ -z "$KSU" || "$KSU" = "0" ]]; then
-KSU=0
-export KSUSTAT=
-elif [ "$KSU" = "1" ]; then
-CONFIG_KSU=ksu.config
-export KSUSTAT=_KSU
-else
-echo "Error: Set KSU to 0 or 1 to build"
-exit 1
-fi
-export KSU
-
-if [[ -z "$T" || "$T" = "0" ]]; then
-T=0
-export testbld=
-elif [ "$T" = "1" ]; then
-CONFIG_TEST=test.config
-export testbld=-test
-else
-echo "Error: Set KSU to 0 or 1 to build"
-exit 1
-fi
-export T
-
-if [[ -z "$1" || "$1" = "-c" ]]; then
-echo "Clean Build"
 rm -rf out
-elif [ "$1" = "-d" ]; then
-echo "Dirty Build"
-else
-echo "Error: Set $1 to -c or -d"
-exit 1
-fi
 
 ARGS='
 CC=clang
@@ -69,14 +35,14 @@ LLVM_NM='${LLVM_DIR}/llvm-nm'
 LLVM=1
 '
 
-make ${ARGS} O=out ${DEVICE}_defconfig moto.config $CONFIG_KSU $CONFIG_TEST
-make ${ARGS} O=out -j$(nproc)
+make ${ARGS} O=out ${DEVICE}_defconfig moto.config -j$(nproc --all)
+make ${ARGS} O=out -j$(nproc --all)
 
 [ ! -e "out/arch/arm64/boot/Image" ] && \
 echo "  ERROR : image binary not found in any of the specified locations , fix compile!" && \
 exit 1
 
-make O=out ${ARGS} -j$(nproc) INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install
+make O=out ${ARGS} -j$(nproc --all) INSTALL_MOD_PATH=modules INSTALL_MOD_STRIP=1 modules_install
 
 #Clean Up
 rm -rf ${modpath}/*
@@ -111,4 +77,4 @@ done
 
 #Zip
 cd ${AnyKernel3}
-zip -r9 O_KERNEL.${kmod}_${DEVICE}${KSUSTAT}${testbld}-${TIME}.zip * -x .git README.md *placeholder
+zip -r9 WearyStars-R1+_${DEVICE}${testbld}-${TIME}.zip * -x .git README.md *placeholder
