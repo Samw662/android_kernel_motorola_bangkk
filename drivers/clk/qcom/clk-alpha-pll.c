@@ -2133,8 +2133,8 @@ static int clk_alpha_pll_postdiv_set_rate(struct clk_hw *hw, unsigned long rate,
 	div = DIV_ROUND_UP_ULL(parent_rate, rate) - 1;
 
 	return regmap_update_bits(pll->clkr.regmap, PLL_USER_CTL(pll),
-				  PLL_POST_DIV_MASK(pll) << PLL_POST_DIV_SHIFT,
-				  div << PLL_POST_DIV_SHIFT);
+				  PLL_POST_DIV_MASK(pll) << pll->post_div_shift,
+				  div << pll->post_div_shift);
 }
 
 const struct clk_ops clk_alpha_pll_postdiv_ops = {
