@@ -2028,7 +2028,6 @@ existing-targets := $(wildcard $(sort $(targets)))
 
 endif # config-targets
 endif # mixed-build
-endif # need-sub-make
 
 PHONY += FORCE
 FORCE:
