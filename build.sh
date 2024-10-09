@@ -3,11 +3,12 @@
 
 # Basic
 export KBUILD_BUILD_USER=Samw662
+export KBUILD_BUILD_HOST=DaturaStramonium
 PATH=$PWD/toolchain/bin:$PATH
 export LLVM_DIR=$PWD/toolchain/bin
 export LLVM=1
 export AnyKernel3=AnyKernel3
-export TIME="$(date "+%Y%m%d")"
+export TIME="$(date "+%d-%m-%Y-%H:%M:%S")"
 export modpath=${AnyKernel3}/modules/vendor/lib/modules
 export ARCH=arm64
 
@@ -70,11 +71,6 @@ sed -i 's/\(kernel\/[^: ]*\/\)\([^: ]*\.ko\)/\/vendor\/lib\/modules\/\2/g' ${mod
 #sed -i 's#.*/##; s/\.ko$//' ${AnyKernel3}/modules/vendor/lib/modules/modules.load
 sed -i 's/.*\///; s/\.ko$//' ${modpath}/modules.load
 
-source build.sta/${DEVICE}_mdconf
-for useles_modules in "${modules_to_nuke[@]}"; do
-  grep -vE "$useles_modules" ${modpath}/modules.load > /tmp/templd && mv /tmp/templd ${modpath}/modules.load
-done
-
 #Zip
 cd ${AnyKernel3}
-zip -r9 WearyStars-R1+_${DEVICE}${testbld}-${TIME}.zip * -x .git README.md *placeholder
+zip -r9 WearyStars-R1+_${DEVICE}^${KBUILD_BUILD_USER}-${TIME}.zip * -x .git README.md *placeholder
