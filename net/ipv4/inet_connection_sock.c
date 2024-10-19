@@ -565,7 +565,7 @@ void inet_csk_clear_xmit_timers_sync(struct sock *sk)
 	struct inet_connection_sock *icsk = inet_csk(sk);
 
 	/* ongoing timer handlers need to acquire socket lock. */
-	sock_not_owned_by_me(sk);
+	sock_owned_by_me(sk);
 
 	icsk->icsk_pending = icsk->icsk_ack.pending = 0;
 
