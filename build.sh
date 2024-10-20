@@ -60,17 +60,9 @@ cp out/.config ${AnyKernel3}/config
 cp out/arch/arm64/boot/Image ${AnyKernel3}/Image
 cp out/arch/arm64/boot/dtb.img ${AnyKernel3}/dtb
 cp out/arch/arm64/boot/dtbo.img ${AnyKernel3}/dtbo.img
-#cp build.sta/${DEVICE}_modules.blocklist ${modpath}/modules.blocklist
 cp $(find out/modules/lib/modules/5.4* -name '*.ko') ${modpath}/
 cp out/modules/lib/modules/5.4*/modules.{alias,dep,softdep} ${modpath}/
 cp out/modules/lib/modules/5.4*/modules.order ${modpath}/modules.load
-
-#Edit
-sed -i 's/\(kernel\/[^: ]*\/\)\([^: ]*\.ko\)/\/vendor\/lib\/modules\/\2/g' ${modpath}/modules.dep
-#sed -i 's/.*\//.ko/g' ${AnyKernel3}/modules/vendor/lib/modules/modules.load
-#sed -i 's#.*/##; s/\.ko$//' ${AnyKernel3}/modules/vendor/lib/modules/modules.load
-sed -i 's/.*\///; s/\.ko$//' ${modpath}/modules.load
-
 #Zip
 cd ${AnyKernel3}
-zip -r9 WearyStars-R1+_${DEVICE}^${KBUILD_BUILD_USER}-${TIME}.zip * -x .git README.md *placeholder
+zip -r9 WearyStars⭐-Sunlight_${DEVICE}-${KBUILD_BUILD_USER}-${TIME}.zip * -x .git README.md *placeholder
