@@ -6,6 +6,7 @@ EXTRA_CFLAGS += -I$(TOP)/motorola/kernel/modules/include
 obj-y += led-core.o led-class.o led-triggers.o
 obj-$(CONFIG_NEW_LEDS) += led-class-flash.o
 obj-$(CONFIG_LEDS_CLASS_MULTICOLOR) += led-class-multicolor.o
+obj-$(CONFIG_LEDS_QPNP_FLASH_V2) += leds-qpnp-flash-v2.o
 
 # Vendor module
 obj-m += leds-indicator-pwm.o
