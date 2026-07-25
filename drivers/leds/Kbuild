@@ -1,6 +1,11 @@
-# add -Wall to try to catch everything we can.
+# SPDX-License-Identifier: GPL-2.0
 EXTRA_CFLAGS += -Wall
 EXTRA_CFLAGS += -I$(TOP)/motorola/kernel/modules/include
 
+# Core LED subsystem (required by vmlinux)
+obj-y += led-core.o led-class.o led-triggers.o
+obj-$(CONFIG_NEW_LEDS) += led-class-flash.o
+obj-$(CONFIG_LEDS_CLASS_MULTICOLOR) += led-class-multicolor.o
 
+# Vendor module
 obj-m += leds-indicator-pwm.o
