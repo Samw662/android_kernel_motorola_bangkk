@@ -1,5 +1,5 @@
-config MOTO_MM
-	tristate "Motorola MOTO MM driver"
+config MOTO_F_USBNET
+	tristate "Motorola MOTO F USBNET driver"
 	default m
 	help
 	  Say M here if you want to build this module.

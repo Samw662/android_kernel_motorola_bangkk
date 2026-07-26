@@ -1,0 +1,5 @@
+config MMI_SYS_TEMP
+	tristate "Motorola MMI System Temperature driver"
+	default m
+	help
+	  Say M here if you want to support Motorola MMI system temperature monitoring.

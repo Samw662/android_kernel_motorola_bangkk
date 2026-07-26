@@ -1,0 +1,5 @@
+config UTAG
+	tristate "Motorola Utag/Utags driver"
+	default m
+	help
+	  Say M here if you want to support Motorola utags partition driver.

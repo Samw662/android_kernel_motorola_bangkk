@@ -76,3 +76,4 @@ config HYBRIDSWAP_ASYNC_COMPRESS
 	  for compress anon pages.
 	  If unsure, say N here.
 	  This feature will reduce the kswapd cpu load.
+

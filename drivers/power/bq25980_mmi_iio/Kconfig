@@ -1,0 +1,3 @@
+config BQ25980_MMI_IIO
+	tristate "BQ25980 MMI IIO charger driver"
+	default m

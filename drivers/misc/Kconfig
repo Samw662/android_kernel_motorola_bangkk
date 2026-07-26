@@ -482,7 +482,7 @@ config PVPANIC
 	  (guest) communicate panic events to the host.
 
 config QSEECOM
-        tristate "QTI Secure Execution Communicator driver"
+        bool "QTI Secure Execution Communicator driver"
         help
           Provides a communication interface between userspace and
           QTI Secure Execution Environment (QSEE) using Secure Channel
@@ -539,4 +539,6 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
+source "drivers/misc/mmi_sys_temp/Kconfig"
+source "drivers/misc/utag/Kconfig"
 endmenu

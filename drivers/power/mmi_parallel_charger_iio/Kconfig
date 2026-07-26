@@ -1,0 +1,5 @@
+config MMI_PARALLEL_CHARGER_IIO
+	tristate "Motorola MMI Parallel Charger IIO driver"
+	default m
+	help
+	  Say M here if you want to support Motorola parallel charger IIO interface.

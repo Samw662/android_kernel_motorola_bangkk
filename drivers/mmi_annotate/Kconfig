@@ -1,5 +1,5 @@
-config MOTO_MM
-	tristate "Motorola MOTO MM driver"
+config MMI_ANNOTATE
+	tristate "Motorola MMI ANNOTATE driver"
 	default m
 	help
 	  Say M here if you want to build this module.

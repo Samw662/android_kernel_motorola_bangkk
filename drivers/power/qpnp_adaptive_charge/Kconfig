@@ -1,0 +1,3 @@
+config QPNP_ADAPTIVE_CHARGE
+	tristate "QPNP Adaptive Charge driver"
+	default m

@@ -1,0 +1,3 @@
+config MMI_SMBCHARGER_IIO
+	tristate "Motorola MMI SMBCharger IIO driver"
+	default m

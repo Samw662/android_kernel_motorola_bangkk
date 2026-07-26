@@ -1,5 +1,5 @@
-config MOTO_MM
-	tristate "Motorola MOTO MM driver"
+config MMI_RELAY
+	tristate "Motorola MMI RELAY driver"
 	default m
 	help
 	  Say M here if you want to build this module.

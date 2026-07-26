@@ -1,0 +1,5 @@
+config SENSORS_CLASS
+	tristate "Sensors class driver"
+	default m
+	help
+	  Say M here if you want to support the sensors class framework.
