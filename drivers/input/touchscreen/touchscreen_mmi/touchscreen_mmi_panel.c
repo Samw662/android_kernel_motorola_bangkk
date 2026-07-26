@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#include <drm/drm_of.h>
+#include <drm/drm_panel.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/device.h>

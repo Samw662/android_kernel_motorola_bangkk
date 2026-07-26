@@ -1,9 +1,9 @@
 # add -Wall to try to catch everything we can.
 EXTRA_CFLAGS += -Wall
 EXTRA_CFLAGS += \
-		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include \
-		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/synaptics_tcm2_mmi \
-                -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/synaptics_tcm2_mmi/tcm
+		-I$(srctree)/include \
+		-I$(srctree)/drivers/input/touchscreen/synaptics_tcm2_mmi \
+                -I$(srctree)/drivers/input/touchscreen/synaptics_tcm2_mmi/tcm
 
 obj-m := synaptics_v2_mmi.o
 synaptics_v2_mmi-objs := \

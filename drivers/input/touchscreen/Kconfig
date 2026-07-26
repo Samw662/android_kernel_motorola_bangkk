@@ -2,6 +2,24 @@
 #
 # Touchscreen driver configuration
 #
+
+config TOUCHSCREEN_MMI
+	tristate "Motorola Touchscreen MMI Class Driver"
+	help
+	  Say Y here if you want to use the Motorola touchscreen class framework.
+
+config TOUCHSCREEN_GOODIX_BERLIN_MMI
+	tristate "Goodix Berlin Touchscreen support for Motorola devices"
+	depends on TOUCHSCREEN_MMI
+	help
+	  Say Y or M here if you have a Goodix Berlin touchscreen.
+
+config TOUCHSCREEN_FOCALTECH_V3_MMI
+	tristate "Focaltech V3 Touchscreen support for Motorola devices"
+	depends on TOUCHSCREEN_MMI
+	help
+	  Say Y or M here if you have a Focaltech V3 touchscreen.
+
 menuconfig INPUT_TOUCHSCREEN
 	bool "Touchscreens"
 	help

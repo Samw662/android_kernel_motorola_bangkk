@@ -1,7 +1,8 @@
 # add -Wall to try to catch everything we can.
 # EXTRA_CFLAGS += -Wall
-EXTRA_CFLAGS += -I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/include \
-		-I$(ANDROID_BUILD_TOP)/motorola/kernel/modules/drivers/input/touchscreen/sec_mmi
+EXTRA_CFLAGS += -I$(srctree)/include \
+EXTRA_CFLAGS += -I$(srctree)/techpack/display/include
+		-I$(srctree)/drivers/input/touchscreen/sec_mmi
 
 ifneq (,$(filter racer% burton%,$(TARGET_PRODUCT)))
     EXTRA_CFLAGS += -DCONFIG_DRM_DYNAMIC_REFRESH_RATE
