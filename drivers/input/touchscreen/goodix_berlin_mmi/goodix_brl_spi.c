@@ -277,7 +277,6 @@ static int goodix_spi_remove(struct spi_device *spi)
 }
 #endif
 
-#ifdef CONFIG_OF
 static const struct of_device_id spi_matchs[] = {
 	{.compatible = "goodix,gt9897S",},
 	{.compatible = "goodix,gt9897T",},
@@ -286,7 +285,7 @@ static const struct of_device_id spi_matchs[] = {
 	{.compatible = "goodix,gt9916P",},
 	{},
 };
-#endif
+MODULE_DEVICE_TABLE(of, spi_matchs);
 
 static const struct spi_device_id spi_id_table[] = {
 	{TS_DRIVER_NAME, 0},
