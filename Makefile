@@ -501,6 +501,11 @@ KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
 		   -Werror=implicit-function-declaration -Werror=implicit-int \
 		   -Werror=return-type -Wno-format-security \
 		   -std=gnu89
+KBUILD_CFLAGS += -Wno-error=implicit-int \
+                 -Wno-error=strict-prototypes \
+                 -Wno-error=unused-but-set-variable \
+                 -Wno-error=enum-conversion \
+                 -Wno-error=array-parameter
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
