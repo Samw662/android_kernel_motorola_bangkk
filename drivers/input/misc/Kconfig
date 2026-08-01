@@ -914,4 +914,10 @@ config INPUT_STPMIC1_ONKEY
 	  To compile this driver as a module, choose M here: the
 	  module will be called stpmic1_onkey.
 
+config RBS_FOD_MMI
+	tristate "Motorola RBS FOD Touchscreen Driver"
+	default m
+	help
+	  Enable support for RBS FOD dynamic node driver for Motorola devices.
+	  If built as a module, it will be named rbs_fod_mmi.ko.
 endif
