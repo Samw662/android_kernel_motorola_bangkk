@@ -240,4 +240,5 @@ source "drivers/moto_mm/Kconfig"
 
 source "drivers/moto_f_usbnet/Kconfig"
 
+source "drivers/fm/Kconfig"
 endmenu

@@ -66,6 +66,8 @@ obj-$(CONFIG_PROFILER)			+= profiler.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
 obj-m 				+= ldo_vibrator_mmi/
+obj-$(CONFIG_AWINIC_SAR) 	+= awinic/
+obj-$(CONFIG_SX937X_SAR) 	+= sx937x/
 KERNEL_SRC ?= /lib/modules/$(shell uname -r)/build
 
 all:

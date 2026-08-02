@@ -11,3 +11,5 @@ qseecom-mod-$(CONFIG_COMPAT)    += compat_qseecom.o
 obj-$(CONFIG_MMI_SYS_TEMP)      += mmi_sys_temp/
 obj-$(CONFIG_UTAG) 		+= utag/
 obj-m 				+= ldo_vibrator_mmi/
+obj-$(CONFIG_AWINIC_SAR)        += awinic/
+obj-$(CONFIG_SX937X_SAR)        += sx937x/

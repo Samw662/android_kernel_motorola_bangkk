@@ -1,0 +1,3 @@
+config CCI_INTF
+	tristate "Qualcomm CCI Interface driver"
+	default m

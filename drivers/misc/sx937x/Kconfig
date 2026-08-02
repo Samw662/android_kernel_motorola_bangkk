@@ -1,0 +1,5 @@
+config SX937X_SAR
+    tristate "Semtech SX937X SAR sensor driver"
+    depends on I2C
+    help
+      Say Y or M here if you want to support Semtech SX937X proximity/SAR sensor.
