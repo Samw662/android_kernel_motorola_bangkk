@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -3151,7 +3151,7 @@ error:
 	return rc;
 }
 
-#ifdef CONFIG_DEEPSLEEP
+#if defined(CONFIG_DEEPSLEEP) || defined(CONFIG_HIBERNATION)
 int dsi_display_unset_clk_src(struct dsi_display *display)
 {
 	int rc = 0;
@@ -6762,6 +6762,10 @@ int dsi_display_dev_remove(struct platform_device *pdev)
 	}
 
 	display = platform_get_drvdata(pdev);
+	if (!display || !display->panel_node) {
+		DSI_ERR("invalid display\n");
+		return -EINVAL;
+	}
 
 	/* decrement ref count */
 	of_node_put(display->panel_node);
