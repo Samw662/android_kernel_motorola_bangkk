@@ -3689,7 +3689,6 @@ static int sde_kms_set_panel_feature(const struct msm_kms *kms,
 	return rc;
 }
 
-static void _sde_kms_null_commit(struct drm_device *dev,
 static int _sde_kms_null_commit(struct drm_device *dev,
 		struct drm_encoder *enc)
 {
