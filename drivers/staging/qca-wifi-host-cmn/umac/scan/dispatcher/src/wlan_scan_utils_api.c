@@ -2656,7 +2656,6 @@ static QDF_STATUS util_scan_parse_mbssid(struct wlan_objmgr_pdev *pdev,
 		}
 
 		pos = next_elem;
-	}
 	qdf_mem_free(new_ie);
 
 	if (split_prof_start)
