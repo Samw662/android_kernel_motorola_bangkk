@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -441,6 +441,9 @@ sch_bcn_update_opmode_change(struct mac_context *mac_ctx, tpDphHashNode sta_ds,
 	uint8_t oper_mode;
 	uint32_t fw_vht_ch_wd = wma_get_vht_ch_width();
 	uint8_t ch_width = 0, ch_bw;
+	tDot11fIEVHTCaps *vht_caps = NULL;
+	tDot11fIEVHTOperation *vht_op = NULL;
+	uint8_t bcn_vht_chwidth = 0;
 
 	/*
 	 * Ignore opmode change during channel change The opmode will be updated
@@ -459,12 +462,24 @@ sch_bcn_update_opmode_change(struct mac_context *mac_ctx, tpDphHashNode sta_ds,
 		return;
 	}
 
-	if (!(session->vhtCapability && bcn->VHTOperation.present))
+	if (bcn->VHTCaps.present) {
+		vht_caps = &bcn->VHTCaps;
+		vht_op = &bcn->VHTOperation;
+	} else if (bcn->vendor_vht_ie.VHTCaps.present) {
+		vht_caps = &bcn->vendor_vht_ie.VHTCaps;
+		vht_op = &bcn->vendor_vht_ie.VHTOperation;
+	}
+
+	if (!(session->vhtCapability && (vht_op && vht_op->present)))
 		return;
+
+	bcn_vht_chwidth = lim_get_vht_ch_width(&bcn->VHTCaps,
+					       &bcn->VHTOperation,
+					       &bcn->HTInfo);
 
 	oper_mode = sta_ds->vhtSupportedChannelWidthSet;
 	if ((oper_mode == WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ) &&
-	    (oper_mode < bcn->VHTOperation.chanWidth))
+	    (oper_mode < bcn_vht_chwidth))
 		skip_opmode_update = true;
 
 	if (WNI_CFG_CHANNEL_BONDING_MODE_DISABLE == cb_mode) {
@@ -479,24 +494,23 @@ sch_bcn_update_opmode_change(struct mac_context *mac_ctx, tpDphHashNode sta_ds,
 	}
 
 	if (!skip_opmode_update &&
-	    (oper_mode != bcn->VHTOperation.chanWidth)) {
-		pe_debug("received VHTOP CHWidth %d",
-			 bcn->VHTOperation.chanWidth);
+	    (oper_mode != bcn_vht_chwidth)) {
+		pe_debug("received VHTOP CHWidth %d", bcn_vht_chwidth);
 		pe_debug("MAC - %0x:%0x:%0x:%0x:%0x:%0x",
 		       mac_hdr->sa[0], mac_hdr->sa[1],
 		       mac_hdr->sa[2], mac_hdr->sa[3],
 		       mac_hdr->sa[4], mac_hdr->sa[5]);
 
-		if ((bcn->VHTOperation.chanWidth >=
+		if ((bcn_vht_chwidth >=
 			WNI_CFG_VHT_CHANNEL_WIDTH_160MHZ) &&
 			(fw_vht_ch_wd > eHT_CHANNEL_WIDTH_80MHZ)) {
 			pe_debug("Updating the CH Width to 160MHz");
 			sta_ds->vhtSupportedChannelWidthSet =
-				bcn->VHTOperation.chanWidth;
+						bcn_vht_chwidth;
 			sta_ds->htSupportedChannelWidthSet =
 				eHT_CHANNEL_WIDTH_40MHZ;
 			ch_width = eHT_CHANNEL_WIDTH_160MHZ;
-		} else if (bcn->VHTOperation.chanWidth >=
+		} else if (bcn_vht_chwidth >=
 			WNI_CFG_VHT_CHANNEL_WIDTH_80MHZ) {
 			pe_debug("Updating the CH Width to 80MHz");
 			sta_ds->vhtSupportedChannelWidthSet =
@@ -504,7 +518,7 @@ sch_bcn_update_opmode_change(struct mac_context *mac_ctx, tpDphHashNode sta_ds,
 			sta_ds->htSupportedChannelWidthSet =
 				eHT_CHANNEL_WIDTH_40MHZ;
 			ch_width = eHT_CHANNEL_WIDTH_80MHZ;
-		} else if (bcn->VHTOperation.chanWidth ==
+		} else if (bcn_vht_chwidth ==
 			WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ) {
 			sta_ds->vhtSupportedChannelWidthSet =
 				WNI_CFG_VHT_CHANNEL_WIDTH_20_40MHZ;
@@ -595,9 +609,7 @@ static void __sch_beacon_process_for_session(struct mac_context *mac_ctx,
 	int8_t regMax = 0, maxTxPower = 0;
 	QDF_STATUS status;
 	bool skip_tpe = false;
-	uint8_t programmed_country[REG_ALPHA2_LEN + 1];
-	enum reg_6g_ap_type pwr_type_6g = REG_INDOOR_AP;
-	bool ctry_code_match = false;
+	enum reg_6g_ap_type pwr_type_6g;
 	bool is_power_constraint_abs = false;
 
 	qdf_mem_zero(&beaconParams, sizeof(tUpdateBeaconParams));
@@ -637,14 +649,29 @@ static void __sch_beacon_process_for_session(struct mac_context *mac_ctx,
 			pe_err("Channel is 6G but country IE not present");
 			return;
 		}
-		wlan_reg_read_current_country(mac_ctx->psoc,
-					      programmed_country);
-		status = wlan_reg_get_6g_power_type_for_ctry(mac_ctx->psoc,
-					bcn->countryInfoParam.countryString,
-					programmed_country, &pwr_type_6g,
-					&ctry_code_match, REG_MAX_AP_TYPE);
+		if (bcn->he_op.oper_info_6g_present) {
+			session->ap_defined_power_type_6g =
+				bcn->he_op.oper_info_6g.info.reg_info;
+			if (session->ap_defined_power_type_6g < REG_INDOOR_AP ||
+			    session->ap_defined_power_type_6g >
+			    REG_MAX_SUPP_AP_TYPE) {
+				session->ap_defined_power_type_6g =
+							REG_VERY_LOW_POWER_AP;
+				pe_debug("AP power type is invalid, defaulting to VLP");
+			}
+		} else {
+			pe_debug("AP power type is null, defaulting to VLP");
+			session->ap_defined_power_type_6g =
+						REG_VERY_LOW_POWER_AP;
+		}
+
+		status = wlan_reg_get_best_6g_power_type(
+				mac_ctx->psoc, mac_ctx->pdev, &pwr_type_6g,
+				session->ap_defined_power_type_6g,
+				bcn->chan_freq);
 		if (QDF_IS_STATUS_ERROR(status))
 			return;
+		session->best_6g_power_type = pwr_type_6g;
 	}
 
 	if (wlan_reg_is_ext_tpc_supported(mac_ctx->psoc)) {
@@ -677,9 +704,9 @@ static void __sch_beacon_process_for_session(struct mac_context *mac_ctx,
 		}
 
 		if ((ap_constraint_change && local_constraint) ||
-		    (tpe_change && !skip_tpe)) {
-			lim_calculate_tpc(mac_ctx, session, pwr_type_6g,
-					  ctry_code_match);
+		    (tpe_change && !skip_tpe) || session->cal_tpc_post_csa) {
+			lim_calculate_tpc(mac_ctx, session);
+			session->cal_tpc_post_csa = false;
 
 			if (tx_ops->set_tpc_power)
 				tx_ops->set_tpc_power(mac_ctx->psoc,
