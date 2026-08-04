@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2016, 2018-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -161,6 +161,18 @@ typedef enum {
     MODE_11BE_EHT40_2G = 32, /* For WIN */
 #endif
 
+#if defined(SUPPORT_11BN) && SUPPORT_11BN
+    MODE_11BN_UHR20 = 33,
+    MODE_11BN_UHR40 = 34,
+    MODE_11BN_UHR80 = 35,
+    MODE_11BN_UHR80_80 = 36,
+    MODE_11BN_UHR160 = 37,
+    MODE_11BN_UHR160_160 = 38,
+    MODE_11BN_UHR320 = 39,
+    MODE_11BN_UHR20_2G = 40,
+    MODE_11BN_UHR40_2G = 41,
+#endif
+
     /*
      * MODE_UNKNOWN should not be used within the host / target interface.
      * Thus, it is permissible for MODE_UNKNOWN to be conditionally-defined,
@@ -261,6 +273,20 @@ typedef enum {
 #define IS_MODE_EHT_2G(mode) (((mode) == MODE_11BE_EHT20_2G) || \
         ((mode) == MODE_11BE_EHT40_2G))
 #endif /* SUPPORT_11BE */
+
+#if defined(SUPPORT_11BN) && SUPPORT_11BN
+#define IS_MODE_UHR(mode) (((mode) == MODE_11BN_UHR20) || \
+        ((mode) == MODE_11BN_UHR40)     || \
+        ((mode) == MODE_11BN_UHR80)     || \
+        ((mode) == MODE_11BN_UHR80_80)  || \
+        ((mode) == MODE_11BN_UHR160)    || \
+        ((mode) == MODE_11BN_UHR160_160)|| \
+        ((mode) == MODE_11BN_UHR320)    || \
+        ((mode) == MODE_11BN_UHR20_2G)  || \
+        ((mode) == MODE_11BN_UHR40_2G))
+#define IS_MODE_UHR_2G(mode) (((mode) == MODE_11BN_UHR20_2G) || \
+        ((mode) == MODE_11BN_UHR40_2G))
+#endif /* SUPPORT_11BN */
 
 #define IS_MODE_VHT_2G(mode) (((mode) == MODE_11AC_VHT20_2G) || \
         ((mode) == MODE_11AC_VHT40_2G) || \
@@ -1754,6 +1780,7 @@ typedef enum {
 typedef enum {
     MLO_SHMEM_RECOVERY_CRASH_PARTNER_CHIPS = 1,
     MLO_SHMEM_RECOVER_NON_MLO_MODE = 2,
+    MLO_SHMEM_RECOVER_NON_CRASH_MLO_MODE = 3,
 } MLO_SHMEM_CHIP_RECOVERY_MODE;
 
 /* glb link info structures used for scratchpad memory (crash and recovery) */
