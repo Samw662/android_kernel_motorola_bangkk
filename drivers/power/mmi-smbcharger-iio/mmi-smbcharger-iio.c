@@ -538,7 +538,7 @@ struct smb_mmi_charger {
 #define AICL_RANGE2_MIN_MV		5600
 #define AICL_RANGE2_STEP_DELTA_MV	200
 #define AICL_RANGE2_OFFSET		16
-int smblib_get_aicl_cont_threshold(struct smb_mmi_chg_param *param, u8 val_raw)
+int mmi_smblib_get_aicl_cont_threshold(struct smb_mmi_chg_param *param, u8 val_raw)
 {
 	int base = param->min_u;
 	u8 reg = val_raw;
@@ -554,7 +554,7 @@ int smblib_get_aicl_cont_threshold(struct smb_mmi_chg_param *param, u8 val_raw)
 	return base + (reg * step);
 }
 
-int smblib_set_aicl_cont_threshold(struct smb_mmi_chg_param *param,
+int mmi_smblib_set_aicl_cont_threshold(struct smb_mmi_chg_param *param,
 				int val_u, u8 *val_raw)
 {
 	int base = param->min_u;
@@ -603,7 +603,7 @@ static const struct smb_buck_boost_freq chg_freq_list[] = {
 	},
 };
 
-int smblib_set_chg_freq(struct smb_mmi_chg_param *param,
+int mmi_smblib_set_chg_freq(struct smb_mmi_chg_param *param,
 				int val_u, u8 *val_raw)
 {
 	u8 i;
@@ -662,8 +662,8 @@ static struct smb_mmi_params smb5_pm8150b_params = {
 		.min_u  = 4000,
 		.max_u  = 11800,
 		.step_u = 100,
-		.get_proc = smblib_get_aicl_cont_threshold,
-		.set_proc = smblib_set_aicl_cont_threshold,
+		.get_proc = mmi_smblib_get_aicl_cont_threshold,
+		.set_proc = mmi_smblib_set_aicl_cont_threshold,
 	},
 	.freq_switcher		= {
 		.name	= "switching frequency",
@@ -671,7 +671,7 @@ static struct smb_mmi_params smb5_pm8150b_params = {
 		.min_u	= 600,
 		.max_u	= 1200,
 		.step_u	= 400,
-		.set_proc = smblib_set_chg_freq,
+		.set_proc = mmi_smblib_set_chg_freq,
 	},
 };
 
@@ -711,7 +711,7 @@ static struct smb_mmi_params smb5_pmi632_params = {
 		.min_u	= 600,
 		.max_u	= 1200,
 		.step_u	= 400,
-		.set_proc = smblib_set_chg_freq,
+		.set_proc = mmi_smblib_set_chg_freq,
 	},
 };
 
@@ -761,7 +761,7 @@ static const char * const smb_mmi_ext_iio_chan_name[] = {
 	[SMB5_QG_BATT_FULL_CURRENT] = "batt_full_current",
 };
 
-bool is_chan_valid(struct smb_mmi_charger *chip,
+bool mmi_smb_is_chan_valid(struct smb_mmi_charger *chip,
 		enum smb_mmi_ext_iio_channels chan)
 {
 	int rc;
@@ -791,7 +791,7 @@ int smb_mmi_read_iio_chan(struct smb_mmi_charger *chip,
 {
 	int rc;
 
-	if (is_chan_valid(chip, chan)) {
+	if (mmi_smb_is_chan_valid(chip, chan)) {
 		rc = iio_read_channel_processed(
 				chip->ext_iio_chans[chan], val);
 		return (rc < 0) ? rc : 0;
@@ -803,14 +803,14 @@ int smb_mmi_read_iio_chan(struct smb_mmi_charger *chip,
 int smb_mmi_write_iio_chan(struct smb_mmi_charger *chip,
 	enum smb_mmi_ext_iio_channels chan, int val)
 {
-	if (is_chan_valid(chip, chan))
+	if (mmi_smb_is_chan_valid(chip, chan))
 		return iio_write_channel_raw(chip->ext_iio_chans[chan],
 						val);
 
 	return -EINVAL;
 }
 
-int smblib_read_mmi(struct smb_mmi_charger *chg, u16 addr, u8 *val)
+int mmi_smblib_read_mmi(struct smb_mmi_charger *chg, u16 addr, u8 *val)
 {
 	unsigned int value;
 	int rc = 0;
@@ -822,23 +822,23 @@ int smblib_read_mmi(struct smb_mmi_charger *chg, u16 addr, u8 *val)
 	return rc;
 }
 
-int smblib_write_mmi(struct smb_mmi_charger *chg, u16 addr, u8 val)
+int mmi_smblib_write_mmi(struct smb_mmi_charger *chg, u16 addr, u8 val)
 {
 	return regmap_write(chg->regmap, addr, val);
 }
 
-int smblib_masked_write_mmi(struct smb_mmi_charger *chg, u16 addr, u8 mask, u8 val)
+int mmi_smblib_masked_write_mmi(struct smb_mmi_charger *chg, u16 addr, u8 mask, u8 val)
 {
 	return regmap_update_bits(chg->regmap, addr, mask, val);
 }
 
-int smblib_get_apsd_result(struct smb_mmi_charger *chg, int *type)
+int mmi_smblib_get_apsd_result(struct smb_mmi_charger *chg, int *type)
 {
 	int rc = 0;
 	u8 stat;
 	int apsd;
 
-	rc = smblib_read_mmi(chg, APSD_STATUS_REG, &stat);
+	rc = mmi_smblib_read_mmi(chg, APSD_STATUS_REG, &stat);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read APSD_STATUS_REG rc=%d\n", rc);
 		return rc;
@@ -846,7 +846,7 @@ int smblib_get_apsd_result(struct smb_mmi_charger *chg, int *type)
 	if (!(stat & APSD_DTC_STATUS_DONE_BIT))
 		return -EBUSY;
 
-	rc = smblib_read_mmi(chg, APSD_RESULT_STATUS_REG, &stat);
+	rc = mmi_smblib_read_mmi(chg, APSD_RESULT_STATUS_REG, &stat);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read APSD_RESULT_STATUS_REG rc=%d\n", rc);
 		return rc;
@@ -875,8 +875,8 @@ int smblib_get_apsd_result(struct smb_mmi_charger *chg, int *type)
 }
 
 #define CHG_SHOW_MAX_SIZE 50
-static u16 smblib_mmi_address = 0;
-static ssize_t smblib_mmi_address_store(struct device *dev,
+static u16 mmi_smblib_mmi_address = 0;
+static ssize_t mmi_smblib_mmi_address_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
@@ -891,18 +891,18 @@ static ssize_t smblib_mmi_address_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	smblib_mmi_address = (u16)mode;
+	mmi_smblib_mmi_address = (u16)mode;
 	mmi_info(mmi_chip, "smblib mmi address value = 0x%04x\n", \
-		smblib_mmi_address);
+		mmi_smblib_mmi_address);
 
 	return rc ? rc : count;
 }
 
-static DEVICE_ATTR(smblib_mmi_address, 0644,
+static DEVICE_ATTR(mmi_smblib_mmi_address, 0644,
 		NULL,
-		smblib_mmi_address_store);
+		mmi_smblib_mmi_address_store);
 
-static ssize_t smblib_mmi_data_show(struct device *dev,
+static ssize_t mmi_smblib_mmi_data_show(struct device *dev,
 				    struct device_attribute *attr,
 				    char *buf)
 {
@@ -911,20 +911,20 @@ static ssize_t smblib_mmi_data_show(struct device *dev,
 	struct platform_device *pdev = to_platform_device(dev);
 	struct smb_mmi_charger *mmi_chip = platform_get_drvdata(pdev);
 
-	rc = smblib_read_mmi(mmi_chip, smblib_mmi_address, &data);
+	rc = mmi_smblib_read_mmi(mmi_chip, mmi_smblib_mmi_address, &data);
 	if (rc) {
 		mmi_err(mmi_chip, "Couldn't read address 0x%x rc=%d\n", \
-			smblib_mmi_address, rc);
+			mmi_smblib_mmi_address, rc);
 		return rc;
 	}
 
 	mmi_info(mmi_chip, "smblib mmi read data value = 0x%02x\n", data);
 
 	return scnprintf(buf, CHG_SHOW_MAX_SIZE, "%04x: %02x\n", \
-		smblib_mmi_address, data);
+		mmi_smblib_mmi_address, data);
 }
 
-static ssize_t smblib_mmi_data_store(struct device *dev,
+static ssize_t mmi_smblib_mmi_data_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
@@ -939,10 +939,10 @@ static ssize_t smblib_mmi_data_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	rc = smblib_write_mmi(mmi_chip, smblib_mmi_address, (u8)data);
+	rc = mmi_smblib_write_mmi(mmi_chip, mmi_smblib_mmi_address, (u8)data);
 	if (rc) {
 		mmi_err(mmi_chip, "Couldn't write address 0x%x rc=%d\n", \
-			smblib_mmi_address, rc);
+			mmi_smblib_mmi_address, rc);
 		return rc;
 	}
 
@@ -951,9 +951,9 @@ static ssize_t smblib_mmi_data_store(struct device *dev,
 	return rc ? rc : count;
 }
 
-static DEVICE_ATTR(smblib_mmi_data, 0644,
-		smblib_mmi_data_show,
-		smblib_mmi_data_store);
+static DEVICE_ATTR(mmi_smblib_mmi_data, 0644,
+		mmi_smblib_mmi_data_show,
+		mmi_smblib_mmi_data_store);
 
 static ssize_t factory_image_mode_store(struct device *dev,
 				struct device_attribute *attr,
@@ -1133,11 +1133,11 @@ static DEVICE_ATTR(force_max_chrg_temp, 0644,
 
 #define USBIN_CMD_IL_REG	(USBIN_BASE + 0x40)
 #define USBIN_SUSPEND_BIT	BIT(0)
-int smblib_set_usb_suspend(struct smb_mmi_charger *chg, bool suspend)
+int mmi_smblib_set_usb_suspend(struct smb_mmi_charger *chg, bool suspend)
 {
 	int rc = 0;
 
-	rc = smblib_masked_write_mmi(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
+	rc = mmi_smblib_masked_write_mmi(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
 				     suspend ? USBIN_SUSPEND_BIT : 0);
 	if (rc < 0)
 		mmi_err(chg, "Couldn't write %s to USBIN suspend rc=%d\n",
@@ -1146,12 +1146,12 @@ int smblib_set_usb_suspend(struct smb_mmi_charger *chg, bool suspend)
 	return rc;
 }
 
-int smblib_get_usb_suspend(struct smb_mmi_charger *chg, int *suspend)
+int mmi_smblib_get_usb_suspend(struct smb_mmi_charger *chg, int *suspend)
 {
 	int rc = 0;
 	u8 temp = 0;
 
-	rc = smblib_read_mmi(chg, POWER_PATH_STATUS_REG, &temp);
+	rc = mmi_smblib_read_mmi(chg, POWER_PATH_STATUS_REG, &temp);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read POWER_PATH_STATUS_REG rc=%d\n", rc);
 		return rc;
@@ -1180,7 +1180,7 @@ static ssize_t force_chg_usb_suspend_store(struct device *dev,
 		pr_err("SMBMMI: chip not valid\n");
 		return -ENODEV;
 	}
-	r = smblib_set_usb_suspend(mmi_chip, (bool)mode);
+	r = mmi_smblib_set_usb_suspend(mmi_chip, (bool)mode);
 
 	return r ? r : count;
 }
@@ -1198,7 +1198,7 @@ static ssize_t force_chg_usb_suspend_show(struct device *dev,
 		pr_err("SMBMMI: chip not valid\n");
 		return -ENODEV;
 	}
-	ret = smblib_get_usb_suspend(mmi_chip, &state);
+	ret = mmi_smblib_get_usb_suspend(mmi_chip, &state);
 	if (ret) {
 		mmi_err(mmi_chip, "USBIN_SUSPEND_BIT failed ret = %d\n", ret);
 		state = -EFAULT;
@@ -1266,7 +1266,7 @@ static ssize_t force_chg_auto_enable_store(struct device *dev,
 		return -ENODEV;
 	}
 
-	r = smblib_masked_write_mmi(mmi_chip, CHARGING_ENABLE_CMD_REG,
+	r = mmi_smblib_masked_write_mmi(mmi_chip, CHARGING_ENABLE_CMD_REG,
 				    CHARGING_ENABLE_CMD_BIT,
 				    mode ? CHARGING_ENABLE_CMD_BIT : 0);
 	if (r < 0) {
@@ -1294,7 +1294,7 @@ static ssize_t force_chg_auto_enable_show(struct device *dev,
 		goto end;
 	}
 
-	ret = smblib_read_mmi(mmi_chip, CHARGING_ENABLE_CMD_REG, &value);
+	ret = mmi_smblib_read_mmi(mmi_chip, CHARGING_ENABLE_CMD_REG, &value);
 	if (ret) {
 		mmi_err(mmi_chip, "CHG_EN_BIT failed ret = %d\n", ret);
 		state = -EFAULT;
@@ -1310,7 +1310,7 @@ static DEVICE_ATTR(force_chg_auto_enable, 0664,
 		force_chg_auto_enable_show,
 		force_chg_auto_enable_store);
 
-int smblib_set_charge_param(struct smb_mmi_charger *chg,
+int mmi_smblib_set_charge_param(struct smb_mmi_charger *chg,
 			    struct smb_mmi_chg_param *param, int val_u)
 {
 	int rc = 0;
@@ -1334,7 +1334,7 @@ int smblib_set_charge_param(struct smb_mmi_charger *chg,
 		val_raw = (val_u - param->min_u) / param->step_u;
 	}
 
-	rc = smblib_write_mmi(chg, param->reg, val_raw);
+	rc = mmi_smblib_write_mmi(chg, param->reg, val_raw);
 	if (rc < 0) {
 		mmi_err(chg, "%s: Couldn't write 0x%02x to 0x%04x rc=%d\n",
 			param->name, val_raw, param->reg, rc);
@@ -1346,13 +1346,13 @@ int smblib_set_charge_param(struct smb_mmi_charger *chg,
 	return rc;
 }
 
-int smblib_get_charge_param(struct smb_mmi_charger *chg,
+int mmi_smblib_get_charge_param(struct smb_mmi_charger *chg,
 			    struct smb_mmi_chg_param *param, int *val_u)
 {
 	int rc = 0;
 	u8 val_raw;
 
-	rc = smblib_read_mmi(chg, param->reg, &val_raw);
+	rc = mmi_smblib_read_mmi(chg, param->reg, &val_raw);
 	if (rc < 0) {
 		mmi_err(chg, "%s: Couldn't read from 0x%04x rc=%d\n",
 		       param->name, param->reg, rc);
@@ -1412,7 +1412,7 @@ static ssize_t force_chg_ibatt_show(struct device *dev,
 		goto end;
 	}
 
-	ret = smblib_get_charge_param(mmi_chip, &mmi_chip->param.fcc, &state);
+	ret = mmi_smblib_get_charge_param(mmi_chip, &mmi_chip->param.fcc, &state);
 	if (ret < 0) {
 		mmi_err(mmi_chip, "Factory Couldn't get master fcc rc=%d\n", (int)ret);
 		return ret;
@@ -1453,18 +1453,18 @@ static ssize_t force_chg_iusb_store(struct device *dev,
 		pmic_vote_force_active_set(mmi_chip->usb_icl_votable, 1);
 	}
 
-	r = smblib_masked_write_mmi(mmi_chip, USBIN_ICL_OPTIONS_REG,
+	r = mmi_smblib_masked_write_mmi(mmi_chip, USBIN_ICL_OPTIONS_REG,
 				    USBIN_MODE_CHG_BIT, USBIN_MODE_CHG_BIT);
 	if (r < 0)
 		mmi_err(mmi_chip, "Couldn't set USBIN_ICL_OPTIONS r=%d\n", (int)r);
 
-	r = smblib_masked_write_mmi(mmi_chip, USBIN_LOAD_CFG_REG,
+	r = mmi_smblib_masked_write_mmi(mmi_chip, USBIN_LOAD_CFG_REG,
 				    ICL_OVERRIDE_AFTER_APSD_BIT,
 				    ICL_OVERRIDE_AFTER_APSD_BIT);
 	if (r < 0)
 		mmi_err(mmi_chip, "Couldn't set USBIN_LOAD_CFG rc=%d\n", (int)r);
 
-	r = smblib_masked_write_mmi(mmi_chip, USBIN_AICL_OPTIONS_CFG_REG,
+	r = mmi_smblib_masked_write_mmi(mmi_chip, USBIN_AICL_OPTIONS_CFG_REG,
 				    0xFF, 0x00);
 	if (r < 0)
 		mmi_err(mmi_chip, "Couldn't set USBIN_AICL_OPTIONS rc=%d\n", (int)r);
@@ -1487,7 +1487,7 @@ static ssize_t force_chg_iusb_show(struct device *dev,
 		goto end;
 	}
 
-	r = smblib_get_charge_param(mmi_chip, &mmi_chip->param.usb_icl, &state);
+	r = mmi_smblib_get_charge_param(mmi_chip, &mmi_chip->param.usb_icl, &state);
 	if (r < 0) {
 		mmi_err(mmi_chip, "Factory Couldn't get usb_icl rc=%d\n", (int)r);
 		return r;
@@ -1521,7 +1521,7 @@ static ssize_t force_chg_idc_store(struct device *dev,
 		return -ENODEV;
 	}
 	dc_curr *= 1000; /* Convert to uA */
-	r = smblib_set_charge_param(mmi_chip, &mmi_chip->param.dc_icl, dc_curr);
+	r = mmi_smblib_set_charge_param(mmi_chip, &mmi_chip->param.dc_icl, dc_curr);
 	if (r < 0) {
 		mmi_err(mmi_chip, "Factory Couldn't set dc icl = %d rc=%d\n",
 		       (int)dc_curr, (int)r);
@@ -1546,7 +1546,7 @@ static ssize_t force_chg_idc_show(struct device *dev,
 		goto end;
 	}
 
-	r = smblib_get_charge_param(mmi_chip, &mmi_chip->param.dc_icl, &state);
+	r = mmi_smblib_get_charge_param(mmi_chip, &mmi_chip->param.dc_icl, &state);
 	if (r < 0) {
 		mmi_err(mmi_chip, "Factory Couldn't get dc_icl rc=%d\n", (int)r);
 		return r;
@@ -1611,7 +1611,7 @@ static ssize_t force_chg_itrick_store(struct device *dev,
 		return -EINVAL;
 	}
 
-	r = smblib_masked_write_mmi(mmi_chip, PRE_CHARGE_CURRENT_CFG_REG,
+	r = mmi_smblib_masked_write_mmi(mmi_chip, PRE_CHARGE_CURRENT_CFG_REG,
 				    mask,
 				    value);
 	if (r < 0) {
@@ -1639,7 +1639,7 @@ static ssize_t force_chg_itrick_show(struct device *dev,
 		goto end;
 	}
 
-	ret = smblib_read_mmi(mmi_chip, PRE_CHARGE_CURRENT_CFG_REG, &value);
+	ret = mmi_smblib_read_mmi(mmi_chip, PRE_CHARGE_CURRENT_CFG_REG, &value);
 	if (ret) {
 		mmi_err(mmi_chip, "Pre Chg ITrick failed ret = %d\n", ret);
 		state = -EFAULT;
@@ -1834,7 +1834,7 @@ static int smb_mmi_set_property(struct power_supply *psy,
 		}
 		mmi_warn(chip, "Request for ICL to %d uA\n", val->intval);
 
-		rc = smblib_masked_write_mmi(chip,
+		rc = mmi_smblib_masked_write_mmi(chip,
 					USBIN_CMD_ICL_OVERRIDE_REG,
 					USBIN_ICL_OVERRIDE_BIT,
 					override);
@@ -2037,7 +2037,7 @@ static int get_prop_usb_present(struct smb_mmi_charger *chg,
 	int rc;
 	u8 stat;
 
-	rc = smblib_read_mmi(chg, USBIN_INT_RT_STS, &stat);
+	rc = mmi_smblib_read_mmi(chg, USBIN_INT_RT_STS, &stat);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read USBIN_RT_STS rc=%d\n", rc);
 		return rc;
@@ -2064,7 +2064,7 @@ static int get_prop_dc_present(struct smb_mmi_charger *chg,
 		return 0;
 	}
 
-	rc = smblib_read_mmi(chg, DCIN_INT_RT_STS, &stat);
+	rc = mmi_smblib_read_mmi(chg, DCIN_INT_RT_STS, &stat);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read DCIN_RT_STS rc=%d\n", rc);
 		return rc;
@@ -2144,7 +2144,7 @@ int mmi_usb_icl_override(struct smb_mmi_charger *chg, int icl)
 	if (rc < 0 || val.intval != QTI_POWER_SUPPLY_TYPEC_NONE)
 		return rc;
 
-	rc = smblib_get_apsd_result(chg, &apsd);
+	rc = mmi_smblib_get_apsd_result(chg, &apsd);
 	if (rc < 0 || apsd == CHG_BC1P2_UNKNOWN)
 		return rc;
 
@@ -2165,21 +2165,21 @@ int mmi_usb_icl_override(struct smb_mmi_charger *chg, int icl)
 		mmi_err(chg, "Couldn't set usb icl, rc=%d\n", rc);
 	}
 
-	rc = smblib_masked_write_mmi(chg, USBIN_ICL_OPTIONS_REG,
+	rc = mmi_smblib_masked_write_mmi(chg, USBIN_ICL_OPTIONS_REG,
 				     USBIN_MODE_CHG_BIT,
 				     usb51_mode);
 	if (rc < 0)
 		mmi_err(chg,
 			"Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
 
-	rc = smblib_masked_write_mmi(chg, USBIN_CMD_ICL_OVERRIDE_REG,
+	rc = mmi_smblib_masked_write_mmi(chg, USBIN_CMD_ICL_OVERRIDE_REG,
 			     USBIN_ICL_OVERRIDE_BIT,
 			     icl_override);
 	if (rc < 0)
 		mmi_err(chg,
 			"Couldn't set USBIN_CMD_ICL_OVERRIDE rc=%d\n", rc);
 
-	rc = smblib_masked_write_mmi(chg, USBIN_LOAD_CFG_REG,
+	rc = mmi_smblib_masked_write_mmi(chg, USBIN_LOAD_CFG_REG,
 				     ICL_OVERRIDE_AFTER_APSD_BIT,
 				     apsd_override);
 	if (rc < 0)
@@ -2244,7 +2244,7 @@ static int mmi_increase_vbus_power(struct smb_mmi_charger *chg, int cur_mv)
 			mmi_info(chg, "pulse count = %d, cur_mv = %d\n", pulse_cnt, cur_mv);
 		}
 
-		rc = smblib_set_charge_param(chg, &chg->param.aicl_cont_threshold,
+		rc = mmi_smblib_set_charge_param(chg, &chg->param.aicl_cont_threshold,
 					     HVDCP_VOLTAGE_NOM - 1000);
 		if (rc < 0) {
 			mmi_err(chg, "Couldn't set aicl cont threshold to 9V rc=%d\n", rc);
@@ -2281,7 +2281,7 @@ static ssize_t force_hvdcp_power_max_store(struct device *dev,
 	    (mmi_chip->hvdcp_power_max != power)) {
 		mmi_chip->hvdcp_power_max = power;
 
-		r = smblib_masked_write_mmi(mmi_chip, HVDCP_PULSE_COUNT_MAX_REG,
+		r = mmi_smblib_masked_write_mmi(mmi_chip, HVDCP_PULSE_COUNT_MAX_REG,
 					    HVDCP_PULSE_COUNT_MAX_QC3_MASK,
 					    HVDCP_PULSE_COUNT_MAX);
 		if (r < 0) {
@@ -2379,11 +2379,11 @@ static DEVICE_ATTR(force_pd_power_max, 0644,
 		force_pd_power_max_show,
 		force_pd_power_max_store);
 
-static int smblib_set_opt_switcher_freq(struct smb_mmi_charger *chg, int fsw_khz)
+static int mmi_smblib_set_opt_switcher_freq(struct smb_mmi_charger *chg, int fsw_khz)
 {
 	int rc = 0;
 
-	rc = smblib_set_charge_param(chg, &chg->param.freq_switcher, fsw_khz);
+	rc = mmi_smblib_set_charge_param(chg, &chg->param.freq_switcher, fsw_khz);
 	if (rc < 0)
 		mmi_err(chg, "Error in setting freq_buck rc=%d\n", rc);
 
@@ -2394,19 +2394,19 @@ static int smblib_set_opt_switcher_freq(struct smb_mmi_charger *chg, int fsw_khz
 #define MICRO_5V	5000000
 #define MICRO_9V	9000000
 #define MICRO_12V	12000000
-static int smblib_set_usb_pd_fsw(struct smb_mmi_charger *chg, int voltage)
+static int mmi_smblib_set_usb_pd_fsw(struct smb_mmi_charger *chg, int voltage)
 {
 	int rc = 0;
 
 	if (voltage == MICRO_5V)
-		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_5V);
+		rc = mmi_smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_5V);
 	else if (voltage > MICRO_5V && voltage < MICRO_9V)
-		rc = smblib_set_opt_switcher_freq(chg,
+		rc = mmi_smblib_set_opt_switcher_freq(chg,
 				chg->chg_freq.freq_6V_8V);
 	else if (voltage >= MICRO_9V && voltage < MICRO_12V)
-		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_9V);
+		rc = mmi_smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_9V);
 	else if (voltage == MICRO_12V)
-		rc = smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_12V);
+		rc = mmi_smblib_set_opt_switcher_freq(chg, chg->chg_freq.freq_12V);
 	else {
 		mmi_err(chg, "Couldn't set Fsw: invalid voltage %d\n",
 				voltage);
@@ -2513,7 +2513,7 @@ static void mmi_chrg_usb_vin_pd_config(struct smb_mmi_charger *chg, int vbus_mv)
 	if (!pps_active && !fixed_active)
 		return;
 	else if (!fsw_setted){
-		smblib_set_usb_pd_fsw(chg, req_pd_volt);
+		mmi_smblib_set_usb_pd_fsw(chg, req_pd_volt);
 		fsw_setted = true;
 	}
 
@@ -2805,7 +2805,7 @@ bool mmi_charge_halted(struct smb_mmi_charger *chg)
 	int rc;
 	bool flag = false;
 
-	rc = smblib_read_mmi(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
+	rc = mmi_smblib_read_mmi(chg, BATTERY_CHARGER_STATUS_1_REG, &stat);
 	if (rc < 0) {
 		mmi_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_1 rc=%d\n",
 			rc);
@@ -4258,7 +4258,7 @@ static void mmi_heartbeat_work(struct work_struct *work)
 		 chg_stat.batt_mv, chg_stat.usb_mv,
 		 prev_vbus_mv, chg_stat.batt_ma);
 
-	rc = smblib_get_usb_suspend(chip, &usb_suspend);
+	rc = mmi_smblib_get_usb_suspend(chip, &usb_suspend);
 	if (rc < 0) {
 		usb_suspend = 0;
 		mmi_err(chip, "Couldn't get USB suspend rc = %d\n", rc);
@@ -4271,13 +4271,13 @@ static void mmi_heartbeat_work(struct work_struct *work)
 		    (chg_stat.batt_ma > REV_BST_MA)) {
 			mmi_err(chip, "Reverse Boosted: Clear, USB Suspend. usb_mv: %d prev_vbus_mv: %d batt_ma: %d \n", chg_stat.usb_mv, prev_vbus_mv, chg_stat.batt_ma);
 			if (chip->factory_mode)
-				smblib_set_usb_suspend(chip, true);
+				mmi_smblib_set_usb_suspend(chip, true);
 			else
 				vote(chip->usb_icl_votable, BOOST_BACK_VOTER,
 				     true, 0);
 			msleep(50);
 			if (chip->factory_mode)
-				smblib_set_usb_suspend(chip, false);
+				mmi_smblib_set_usb_suspend(chip, false);
 			else
 				vote(chip->usb_icl_votable, BOOST_BACK_VOTER,
 				     false, 0);
@@ -4416,12 +4416,12 @@ static int smbchg_reboot(struct notifier_block *nb,
 			/* Disable Factory Kill */
 			factory_kill_disable = true;
 			/* Disable Charging */
-			smblib_masked_write_mmi(chg, CHARGING_ENABLE_CMD_REG,
+			mmi_smblib_masked_write_mmi(chg, CHARGING_ENABLE_CMD_REG,
 						CHARGING_ENABLE_CMD_BIT,
 						0);
 
 			/* Suspend USB and DC */
-			smblib_set_usb_suspend(chg, true);
+			mmi_smblib_set_usb_suspend(chg, true);
 			rc = power_supply_get_property(chg->usb_psy,
 						 POWER_SUPPLY_PROP_VOLTAGE_NOW,
 						 &val);
@@ -4976,7 +4976,7 @@ static int register_dump_read(struct seq_file *m, void *data)
 	struct smb_mmi_charger *chip = m->private;
 
 	for (i = CHGR_BASE; i < MISC_BASE + 0x100; i++) {
-		rc = smblib_read_mmi(chip, i, &stat);
+		rc = mmi_smblib_read_mmi(chip, i, &stat);
 		if (rc < 0)
 			continue;
 		seq_printf(m, "REG:0x%x: 0x%x\n", i, stat);
@@ -5285,7 +5285,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 		chip->dc_suspend_votable = NULL;
 
 	if (chip->smb_version == PM8150B) {
-		if (smblib_masked_write_mmi(chip, LEGACY_CABLE_CFG_REG,
+		if (mmi_smblib_masked_write_mmi(chip, LEGACY_CABLE_CFG_REG,
 					    0xFF, 0))
 			mmi_err(chip, "Could not set Legacy Cable CFG\n");
 	}
@@ -5299,7 +5299,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 		smb_mmi_write_iio_chan(chip,
 					  SMB5_SW_JEITA_ENABLED, pval.intval);
 		/* Ensure HW JEITA is DISABLED */
-		if (smblib_masked_write_mmi(chip, PM8150B_JEITA_EN_CFG_REG,
+		if (mmi_smblib_masked_write_mmi(chip, PM8150B_JEITA_EN_CFG_REG,
 					    0xFF, 0x00))
 			mmi_err(chip, "Could not disable JEITA CFG\n");
 	}
@@ -5307,7 +5307,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	if ((chip->smb_version == PM8150B) ||
 	    (chip->smb_version == PM7250B) ||
 	    (chip->smb_version == PMI632))
-		if (smblib_masked_write_mmi(chip, USBIN_ADAPTER_ALLOW_CFG_REG,
+		if (mmi_smblib_masked_write_mmi(chip, USBIN_ADAPTER_ALLOW_CFG_REG,
 					    USBIN_ADAPTER_ALLOW_MASK,
 					    USBIN_ADAPTER_ALLOW_5V_TO_9V))
 			mmi_err(chip, "Could not set USB Adapter CFG\n");
@@ -5317,14 +5317,14 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	 * accordingly to limit voltage increment.
 	 */
 	if (chip->hvdcp_power_max) {
-		rc = smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
+		rc = mmi_smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
 					    HVDCP_PULSE_COUNT_MAX_QC3_MASK,
 					    chip->inc_hvdcp_cnt);
 		if (rc < 0)
 			mmi_err(chip, "Could not set HVDCP3 pulse count max\n");
 	}
 
-	rc = smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
+	rc = mmi_smblib_masked_write_mmi(chip, HVDCP_PULSE_COUNT_MAX_REG,
 					    HVDCP_PULSE_COUNT_MAX_QC2_MASK,
 					    chip->hvdcp2_force_9v ?
 					    HVDCP_PULSE_COUNT_MAX_QC2_9V:
@@ -5337,7 +5337,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	chip->charging_limit_modes = CHARGING_LIMIT_UNKNOWN;
 
 	if (chip->dc_cl_ma >= 0) {
-		rc = smblib_set_charge_param(chip, &chip->param.dc_icl,
+		rc = mmi_smblib_set_charge_param(chip, &chip->param.dc_icl,
 					chip->dc_cl_ma * 1000);
 		if (rc)
 			mmi_err(chip, "Failed to set DC ICL %d\n",
@@ -5347,14 +5347,14 @@ static int smb_mmi_probe(struct platform_device *pdev)
 	/* Workaround for some cables that collapse on boot */
 	if (!chip->factory_mode) {
 		dev_err(chip->dev, "SMBMMI: Suspending USB for 50 ms to clear\n");
-		smblib_set_usb_suspend(chip, true);
+		mmi_smblib_set_usb_suspend(chip, true);
 		msleep(50);
-		smblib_set_usb_suspend(chip, false);
+		mmi_smblib_set_usb_suspend(chip, false);
 	}
 
 	if (chip->factory_mode &&
 		(chip->smb_version == PMI632)) {
-		rc = smblib_masked_write_mmi(chip, USBIN_INT_EN_CLR,
+		rc = mmi_smblib_masked_write_mmi(chip, USBIN_INT_EN_CLR,
 					    0xFF, USBIN_OV_EN_CLR);
 		if (rc) {
 			mmi_err(chip, "Could Not disable usbin ov irq\n");
@@ -5407,14 +5407,14 @@ static int smb_mmi_probe(struct platform_device *pdev)
 
 	if (chip->factory_mode) {
 		mmi_info(chip, "Entering Factory Mode SMB!\n");
-		rc = smblib_masked_write_mmi(chip, USBIN_ICL_OPTIONS_REG,
+		rc = mmi_smblib_masked_write_mmi(chip, USBIN_ICL_OPTIONS_REG,
 					     USBIN_MODE_CHG_BIT,
 					     USBIN_MODE_CHG_BIT);
 		if (rc < 0)
 			mmi_err(chip,
 				"Couldn't set USBIN_ICL_OPTIONS rc=%d\n", rc);
 
-		rc = smblib_masked_write_mmi(chip, USBIN_LOAD_CFG_REG,
+		rc = mmi_smblib_masked_write_mmi(chip, USBIN_LOAD_CFG_REG,
 					     ICL_OVERRIDE_AFTER_APSD_BIT,
 					     ICL_OVERRIDE_AFTER_APSD_BIT);
 		if (rc < 0)
@@ -5422,7 +5422,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 				"Couldn't set USBIN_LOAD_CFG rc=%d\n", rc);
 
 		if (!chip->enable_factory_mode_aicl) {
-			rc = smblib_masked_write_mmi(chip, USBIN_AICL_OPTIONS_CFG_REG,
+			rc = mmi_smblib_masked_write_mmi(chip, USBIN_AICL_OPTIONS_CFG_REG,
 					     0xFF, 0x00);
 			if (rc < 0)
 				mmi_err(chip,
@@ -5456,7 +5456,7 @@ static int smb_mmi_probe(struct platform_device *pdev)
 		}
 
 		/* Some Cables need a more forced approach */
-		rc = smblib_set_charge_param(chip, &chip->param.usb_icl,
+		rc = mmi_smblib_set_charge_param(chip, &chip->param.usb_icl,
 					     3000000);
 		if (rc < 0)
 			mmi_err(chip,
@@ -5464,17 +5464,17 @@ static int smb_mmi_probe(struct platform_device *pdev)
 				(int)rc);
 
 		rc = device_create_file(chip->dev,
-					&dev_attr_smblib_mmi_address);
+					&dev_attr_mmi_smblib_mmi_address);
 		if (rc) {
 			mmi_err(chip,
-				   "Couldn't create smblib_mmi_address\n");
+				   "Couldn't create mmi_smblib_mmi_address\n");
 		}
 
 		rc = device_create_file(chip->dev,
-					&dev_attr_smblib_mmi_data);
+					&dev_attr_mmi_smblib_mmi_data);
 		if (rc) {
 			mmi_err(chip,
-				   "Couldn't create smblib_mmi_data\n");
+				   "Couldn't create mmi_smblib_mmi_data\n");
 		}
 
 		rc = device_create_file(chip->dev,
