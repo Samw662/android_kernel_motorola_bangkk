@@ -15,4 +15,4 @@ ifneq ($(filter m y,$(CONFIG_SX937X_FLIP_CAL)),)
     ccflags-y += -DCONFIG_CAPSENSE_FLIP_CAL
 endif
 
-obj-m += sx937x_sar.o
+obj-$(CONFIG_SX937X_SAR) += sx937x_sar.o
