@@ -3,7 +3,7 @@ EXTRA_CFLAGS += -Wall
 EXTRA_CFLAGS += \
 		-I$(srctree)/include
 
-obj-m := goodix_brl_mmi.o
+obj-y := goodix_brl_mmi.o
 goodix_brl_mmi-objs := \
 					goodix_brl_i2c.o \
 					goodix_brl_spi.o \
@@ -127,5 +127,5 @@ else ifneq ($(filter bangkk%, $(USE_TARGET_PRODUCT)), )
 endif
 $(warning "EXTRA_CFLAGS = $(EXTRA_CFLAGS)")
 
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../touchscreen_mmi/$(GKI_OBJ_MODULE_DIR)/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_info/$(GKI_OBJ_MODULE_DIR)/Module.symvers
+# KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../touchscreen_mmi/$(GKI_OBJ_MODULE_DIR)/Module.symvers
+# KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_info/$(GKI_OBJ_MODULE_DIR)/Module.symvers
