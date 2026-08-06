@@ -70,7 +70,7 @@ const struct mmi_chrg_dev_ops dev_ops[] = {
 	},
 };
 
-bool is_chan_valid(struct mmi_charger_manager *chip,
+bool mmi_parallel_is_chan_valid(struct mmi_charger_manager *chip,
 		enum mmi_charger_ext_iio_channels chan)
 {
 	int rc;
@@ -100,7 +100,7 @@ int mmi_charger_read_iio_chan(struct mmi_charger_manager *chip,
 {
 	int rc;
 
-	if (is_chan_valid(chip, chan)) {
+	if (mmi_parallel_is_chan_valid(chip, chan)) {
 		rc = iio_read_channel_processed(
 				chip->ext_iio_chans[chan], val);
 		return (rc < 0) ? rc : 0;
@@ -112,7 +112,7 @@ int mmi_charger_read_iio_chan(struct mmi_charger_manager *chip,
 int mmi_charger_write_iio_chan(struct mmi_charger_manager *chip,
 	enum mmi_charger_ext_iio_channels chan, int val)
 {
-	if (is_chan_valid(chip, chan))
+	if (mmi_parallel_is_chan_valid(chip, chan))
 		return iio_write_channel_raw(chip->ext_iio_chans[chan],
 						val);
 
