@@ -8,7 +8,7 @@ EXTRA_CFLAGS += -I$(srctree)/drivers/input/touchscreen/focaltech_v3_mmi/include
 # Forzamos la definición del IC ft5452i para evitar el símbolo no definido
 EXTRA_CFLAGS += -DCONFIG_FTS_IC_NAME_FT3519
 
-obj-m := focaltech_v3_mmi.o
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH_V3_MMI) := focaltech_v3_mmi.o
 focaltech_v3_mmi-objs += focaltech_core.o
 focaltech_v3_mmi-objs += focaltech_ex_fun.o
 focaltech_v3_mmi-objs += focaltech_ex_mode.o
