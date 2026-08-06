@@ -8,7 +8,7 @@ ifneq ($(filter m y,$(CONFIG_AW96XX_POWER_SUPPLY_ONLINE)),)
     ccflags-y += -DCONFIG_USE_POWER_SUPPLY_ONLINE
 endif
 
-obj-m += awinic_sar.o
+obj-$(CONFIG_AWINIC_SAR) += awinic_sar.o
 
 awinic_sar-objs := \
     comm/aw_sar_comm_interface.o \
