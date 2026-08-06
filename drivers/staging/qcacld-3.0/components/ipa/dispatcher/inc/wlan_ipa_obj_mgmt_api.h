@@ -42,6 +42,13 @@ QDF_STATUS ipa_init(void);
 QDF_STATUS ipa_deinit(void);
 
 /**
+ * wlan_ipa_is_ready() - get the WLAN IPA ready status
+ *
+ * Return: true if IPA is ready, false otherwise
+ */
+bool wlan_ipa_is_ready(void);
+
+/**
  * ipa_register_is_ipa_ready() - Register IPA ready callback
  * @pdev: pointer to pdev
  *
@@ -52,7 +59,7 @@ QDF_STATUS ipa_register_is_ipa_ready(struct wlan_objmgr_pdev *pdev);
 /**
  * ipa_disable_register_cb() - Reset the IPA is ready flag
  *
- * Return: Set the ipa_is_ready flag to false when module is
+ * Return: Set the wlan_ipa_is_ready flag to false when module is
  * unloaded to indicate that ipa ready cb is not registered
  */
 void ipa_disable_register_cb(void);
