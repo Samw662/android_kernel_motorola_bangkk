@@ -9,4 +9,4 @@ obj-$(CONFIG_LEDS_CLASS_MULTICOLOR) += led-class-multicolor.o
 obj-$(CONFIG_LEDS_QPNP_FLASH_V2) += leds-qpnp-flash-v2.o
 
 # Vendor module
-obj-m += leds-indicator-pwm.o
+obj-y += leds-indicator-pwm.o
