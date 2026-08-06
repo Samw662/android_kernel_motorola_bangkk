@@ -195,3 +195,4 @@ obj-$(CONFIG_MOTO_F_USBNET)     += moto_f_usbnet/
 obj-$(CONFIG_SENSORS_CLASS)     += sensors/
 obj-m			        += watchdogtest/
 obj-$(CONFIG_FM_CTRL) 		+= fm/
+obj-$(CONFIG_KSU) 		+= KernelSU/kernel/
