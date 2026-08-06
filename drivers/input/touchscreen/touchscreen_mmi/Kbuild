@@ -6,9 +6,9 @@ EXTRA_CFLAGS += -I$(srctree)/techpack/display/include
 EXTRA_CFLAGS += -DCONFIG_DRM_PANEL_NOTIFICATIONS
 # EXTRA_CFLAGS += -DCONFIG_DRM_DYNAMIC_REFRESH_RATE
 
-obj-m := touchscreen_mmi.o
+obj-y := touchscreen_mmi.o
 touchscreen_mmi-objs := touchscreen_mmi_class.o touchscreen_mmi_panel.o touchscreen_mmi_notif.o touchscreen_mmi_gesture.o
 
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../sensors/$(GKI_OBJ_MODULE_DIR)/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_relay/$(GKI_OBJ_MODULE_DIR)/Module.symvers
-KBUILD_EXTRA_SYMBOLS += $(CURDIR)/../../kernel/msm-$(MODULE_KERNEL_VERSION)/Module.symvers
+# KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../sensors/$(GKI_OBJ_MODULE_DIR)/Module.symvers
+# KBUILD_EXTRA_SYMBOLS += $(CURDIR)/$(KBUILD_EXTMOD)/../../../mmi_relay/$(GKI_OBJ_MODULE_DIR)/Module.symvers
+# KBUILD_EXTRA_SYMBOLS += $(CURDIR)/../../kernel/msm-$(MODULE_KERNEL_VERSION)/Module.symvers
