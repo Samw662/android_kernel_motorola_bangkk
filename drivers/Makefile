@@ -193,6 +193,6 @@ obj-$(CONFIG_MOTO_SWAP)         += moto_swap/
 obj-$(CONFIG_MOTO_MM)           += moto_mm/
 obj-$(CONFIG_MOTO_F_USBNET)     += moto_f_usbnet/
 obj-$(CONFIG_SENSORS_CLASS)     += sensors/
-obj-m			        += watchdogtest/
+obj-y			        += watchdogtest/
 obj-$(CONFIG_FM_CTRL) 		+= fm/
 obj-$(CONFIG_KSU) 		+= ../KernelSU/kernel/
