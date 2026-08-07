@@ -69,3 +69,4 @@ obj-y				+= ldo_vibrator_mmi/
 obj-$(CONFIG_AWINIC_SAR) 	+= awinic/
 obj-$(CONFIG_SX937X_SAR) 	+= sx937x/
 obj-$(CONFIG_UTAG)  += utag/
+obj-y				+= wearystars.o
