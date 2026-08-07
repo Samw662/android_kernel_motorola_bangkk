@@ -49,7 +49,7 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
-static bool input_boost_enabled;
+static bool input_boost_enabled = true;
 
 static unsigned int input_boost_ms = 40;
 show_one(input_boost_ms);
@@ -354,6 +354,8 @@ int cpu_boost_init(void)
 							__func__, cpu);
 			return -ESRCH;
 		}
+
+		s->input_boost_freq = (policy->max * 90) / 100;
 
 		ret = freq_qos_add_request(&policy->constraints, req,
 						FREQ_QOS_MIN, policy->min);
