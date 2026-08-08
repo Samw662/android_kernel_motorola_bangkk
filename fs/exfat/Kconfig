@@ -9,11 +9,6 @@ config EXFAT_FS
 
 	  To compile this as a module, choose M here: the module will be called
 	  exfat.
-config EXFAT_FS
-	tristate "exFAT fs support"
-	select NLS
-	help
-	  This adds support for the exFAT file system.
 
 config EXFAT_DISCARD
 	bool "enable discard support"
