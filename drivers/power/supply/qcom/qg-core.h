@@ -196,6 +196,7 @@ struct qpnp_qg {
 
 	/* soc params */
 	int			catch_up_soc;
+	s64			cc_kern_uah;
 	int			maint_soc;
 	int			msoc;
 	int			pon_soc;

@@ -1332,6 +1332,29 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 		goto done;
 	}
 
+	if (fifo_length > 0 && fifo_length <= chip->max_fifo_length) {
+		int fcc_ua = 0, delta_pct = 0;
+
+		if (!qg_get_nominal_capacity(&fcc_ua, 250, true) &&
+				fcc_ua > 0 && time_delta_ms > 1000 &&
+				time_delta_ms < 600000) {
+			chip->cc_kern_uah += div_s64((s64)chip->last_fifo_i_ua *
+						time_delta_ms, 3600000);
+			delta_pct = div_s64(chip->cc_kern_uah,
+					div_s64(fcc_ua, 100));
+			while (delta_pct) {
+				chip->msoc = CAP(0, 100, chip->msoc + delta_pct);
+				chip->cc_kern_uah -= div_s64((s64)delta_pct *
+						fcc_ua, 100);
+				delta_pct = div_s64(chip->cc_kern_uah,
+						div_s64(fcc_ua, 100));
+			}
+			chip->catch_up_soc = chip->msoc;
+			qg_write_monotonic_soc(chip, chip->msoc);
+			power_supply_changed(chip->qg_psy);
+		}
+	}
+
 	if (++chip->fifo_done_count == U32_MAX)
 		chip->fifo_done_count = 0;
 
@@ -1428,6 +1451,7 @@ static irqreturn_t qg_vbat_empty_handler(int irq, void *data)
 	pr_warn("VBATT EMPTY SOC = 0\n");
 
 	chip->catch_up_soc = 0;
+	chip->cc_kern_uah = 0;
 	qg_scale_soc(chip, true);
 
 	qg_sdam_read(SDAM_OCV_UV, &ocv_uv);
