@@ -1338,7 +1338,7 @@ static irqreturn_t qg_fifo_update_done_handler(int irq, void *data)
 		if (!qg_get_nominal_capacity(&fcc_ua, 250, true) &&
 				fcc_ua > 0 && time_delta_ms > 1000 &&
 				time_delta_ms < 600000) {
-			chip->cc_kern_uah += div_s64((s64)chip->last_fifo_i_ua *
+			chip->cc_kern_uah -= div_s64((s64)chip->last_fifo_i_ua *
 						time_delta_ms, 3600000);
 			delta_pct = div_s64(chip->cc_kern_uah,
 					div_s64(fcc_ua, 100));
