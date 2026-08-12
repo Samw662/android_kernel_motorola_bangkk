@@ -229,7 +229,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
+hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 			       dev_name(&pdev->dev), NULL);
 	if (!hcd)
 		return -ENOMEM;
@@ -346,7 +346,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_usb_phy;
 
-	if (!xhci_has_one_roothub(xhci)) {
+if (!xhci_has_one_roothub(xhci)) {
 		xhci->shared_hcd = __usb_create_hcd(driver, sysdev, &pdev->dev,
 						    dev_name(&pdev->dev), hcd);
 		if (!xhci->shared_hcd) {
@@ -358,7 +358,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	}
 
 	usb3_hcd = xhci_get_usb3_hcd(xhci);
-	if (usb3_hcd && HCC_MAX_PSA(xhci->hcc_params) >= 4)
+	if (usb3_hcd && HCC_MAX_PSA(xhci->hcc_params) >= 4 &&
+	    !(xhci->quirks & XHCI_BROKEN_STREAMS))
 		usb3_hcd->can_do_streams = 1;
 
 	if (xhci->shared_hcd) {

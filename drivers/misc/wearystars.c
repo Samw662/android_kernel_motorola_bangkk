@@ -14,13 +14,17 @@
 #include <linux/cpu.h>
 
 static const char * const weary_banner[] = {
-	"__        __   _                          _____ _                 _ ",
-	"\\ \\      / /__| | ___ ___  _ __ ___   __  |___  | |__   ___  _ __| |",
-	" \\ \\ /\\ / / _ \\ |/ __/ _ \\| '_ ` _ \\ / _` |   / /| '_ \\ / _ \\| '__| __|",
-	"  \\ V  V /  __/ | (_| (_) | | | | | | (_| |  / / | | | | (_) | |  | |_",
-	"   \\_/\\_/ \\___|_|\\___\\___/|_| |_| |_|\\__,_| /_/  |_| |_|\\___/|_|   \\__|",
+	"W   W  EEEE  AAAA  RRRR   Y Y",
+	"W   W  E     A  A  R  R   Y Y",
+	"W W W  EEEE  AAAA  RRRR    Y",
+	"W W W  E     A  A  R  R    Y",
+	"W   W  EEEE  A  A  R   R   Y",
 	"",
-	"kernel . frankenstein . builtin-max",
+	"   kernel WearyStars - built with <3 by Samw662",
+	"",
+	"  ~ Telegram:           t.me/Samw662",
+	"  ~ Follow more:        t.me/WearySam",
+	"  ~ Join builds:        t.me/SamWearyBuilds",
 };
 
 static int weary_show(struct seq_file *m, void *v)
