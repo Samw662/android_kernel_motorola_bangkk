@@ -246,8 +246,10 @@ struct tcp_sock {
 		syn_data_acked:1,/* data in SYN is acked by SYN-ACK */
 		save_syn:1,	/* Save headers of SYN packet */
 		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
-		syn_smc:1;	/* SYN includes SMC */
+		syn_smc:1,	/* SYN includes SMC */
+		fast_ack_mode:1;/* ack ASAP if >1 rcv_mss received? */
 	u32	tlp_high_seq;	/* snd_nxt at the time of TLP */
+	u8	tlp_orig_data_app_limited:1;/* app-limited before TLP rtx? */
 
 	u32	tcp_tx_delay;	/* delay (in usec) added to TX packets */
 	u64	tcp_wstamp_ns;	/* departure time for next sent data packet */
@@ -411,6 +413,7 @@ struct tcp_sock {
 	 */
 	struct request_sock __rcu *fastopen_rsk;
 	u32	*saved_syn;
+	u32	plb_rehash;	/* PLB-triggered rehash attempts */
 };
 
 enum tsq_enum {
