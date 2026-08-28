@@ -71,6 +71,10 @@ static ssize_t fts_sample_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size);
 static ssize_t fts_sample_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
+static ssize_t fts_stowed_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size);
+static ssize_t fts_stowed_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
 
 
 static DEVICE_ATTR(edge, (S_IRUGO | S_IWUSR | S_IWGRP),
@@ -79,6 +83,8 @@ static DEVICE_ATTR(interpolation, (S_IRUGO | S_IWUSR | S_IWGRP),
 	fts_interpolation_show, fts_interpolation_store);
 static DEVICE_ATTR(sample, (S_IRUGO | S_IWUSR | S_IWGRP),
 	fts_sample_show, fts_sample_store);
+static DEVICE_ATTR(stowed, (S_IWUSR | S_IWGRP | S_IRUGO),
+	fts_stowed_show, fts_stowed_store);
 
 #define ADD_ATTR(name) { \
 	if (idx < MAX_ATTRS_ENTRIES)  { \
@@ -397,6 +403,67 @@ static ssize_t fts_sample_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "0x%02x", ts_data->set_mode.sample);
 }
 
+static ssize_t fts_stowed_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int ret = 0;
+	unsigned long mode = 0;
+	struct fts_ts_data *ts_data;
+
+	dev = MMI_DEV_TO_TS_DEV(dev);
+	GET_TS_DATA(dev);
+
+	ret = kstrtoul(buf, 0, &mode);
+	if (ret < 0) {
+		FTS_INFO("Failed to convert value.\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ts_data->mode_lock);
+
+	ts_data->get_mode.stowed = mode;
+	if (ts_data->set_mode.stowed == mode) {
+		FTS_DEBUG("The value = %lu is same, so not to write", mode);
+		ret = size;
+		goto exit;
+	}
+
+	if ((ts_data->power_disabled == false) && (ts_data->suspended == true)) {
+		if (mode)
+			ret = fts_write_reg(FTS_REG_POWER_MODE, FTS_REG_POWER_MODE_STANDBY);
+		else
+			ret = fts_write_reg(FTS_REG_POWER_MODE, FTS_REG_POWER_MODE_ACTIVE);
+		if (ret < 0) {
+			FTS_ERROR("failed to set report rate, mode = %lu", mode);
+			goto exit;
+		}
+	} else {
+		FTS_INFO("Skip stowed mode setting suspended:%d, power_disabled:%d.\n", ts_data->suspended, ts_data->power_disabled);
+		ret = size;
+		goto exit;
+	}
+
+	ts_data->set_mode.stowed = mode;
+	FTS_INFO("Success to set stowed mode %lu\n", mode);
+
+	ret = size;
+exit:
+	mutex_unlock(&ts_data->mode_lock);
+	return ret;
+}
+
+static ssize_t fts_stowed_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fts_ts_data *ts_data;
+
+	dev = MMI_DEV_TO_TS_DEV(dev);
+	GET_TS_DATA(dev);
+
+	FTS_INFO("Stowed state = %d.\n", ts_data->set_mode.stowed);
+	return scnprintf(buf, PAGE_SIZE, "0x%02x", ts_data->set_mode.stowed);
+}
+
 static int fts_mmi_methods_get_vendor(struct device *dev, void *cdata)
 {
 	return scnprintf(TO_CHARP(cdata), TS_MMI_MAX_VENDOR_LEN, "%s", "focaltech");
@@ -550,10 +617,8 @@ static int fts_mmi_methods_reset(struct device *dev, int type)
 static int fts_mmi_firmware_update(struct device *dev, char *fwname)
 {
 	struct fts_ts_data *ts_data;
-	struct input_dev *input_dev;
 
 	GET_TS_DATA(dev);
-	input_dev = ts_data->input_dev;
 
 	ts_data->force_reflash = true;
 
@@ -611,7 +676,6 @@ static int fts_mmi_charger_mode(struct device *dev, int mode)
 static int fts_mmi_panel_state(struct device *dev,
 	enum ts_mmi_pm_mode from, enum ts_mmi_pm_mode to)
 {
-	struct fts_ts_platform_data *pdata;
 	struct fts_ts_data *ts_data;
 	int ret = 0;
 #if defined(CONFIG_FTS_DOUBLE_TAP_CONTROL)
@@ -620,7 +684,6 @@ static int fts_mmi_panel_state(struct device *dev,
 #endif
 
 	GET_TS_DATA(dev);
-	pdata = ts_data->pdata;
 #ifdef FOCALTECH_SENSOR_EN
 	ts_data->zero_enable = 0;
 #endif
@@ -808,6 +871,10 @@ exit:
 		}
 	}
 
+	if (pdata->stowed_mode_ctrl) {
+		ts_data->set_mode.stowed = 0;
+	}
+
 	mutex_unlock(&ts_data->mode_lock);
 
 	FTS_FUNC_EXIT();
@@ -837,8 +904,11 @@ static int fts_mmi_pre_suspend(struct device *dev)
 static int fts_mmi_post_suspend(struct device *dev)
 {
 	struct fts_ts_data *ts_data;
+	struct fts_ts_platform_data *pdata;
+	int ret = 0;
 
 	GET_TS_DATA(dev);
+	pdata = ts_data->pdata;
 
 	FTS_FUNC_ENTER();
 
@@ -852,6 +922,19 @@ static int fts_mmi_post_suspend(struct device *dev)
 #endif
 
 	ts_data->suspended = true;
+
+	if (pdata->stowed_mode_ctrl && ts_data->get_mode.stowed && (ts_data->power_disabled == false)) {
+		mutex_lock(&ts_data->mode_lock);
+		ret = fts_write_reg(FTS_REG_POWER_MODE, FTS_REG_POWER_MODE_STANDBY);
+		if (ret < 0) {
+			FTS_ERROR("Failed to set stowed mode %d", ts_data->get_mode.stowed);
+		} else {
+			ts_data->set_mode.stowed = ts_data->get_mode.stowed;
+			FTS_INFO("Enable stowed mode %d success.", ts_data->set_mode.stowed);
+		}
+		mutex_unlock(&ts_data->mode_lock);
+	}
+
 	FTS_FUNC_EXIT();
 
 	return 0;
@@ -1003,6 +1086,9 @@ static int fts_mmi_extend_attribute_group(struct device *dev, struct attribute_g
 
 	if (pdata->sample_ctrl)
 		ADD_ATTR(sample);
+
+	if (pdata->stowed_mode_ctrl)
+		ADD_ATTR(stowed);
 
 	if (idx) {
 		ext_attributes[idx] = NULL;

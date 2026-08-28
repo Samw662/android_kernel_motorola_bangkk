@@ -3,13 +3,80 @@
 #
 
 config TOUCHSCREEN_FTS_V3
-    bool "Focaltech Touchscreen v3"
-    default n
-    help
-      Say Y here if you have Focaltech touch panel.
-      If unsure, say N.
+	tristate "Focaltech Touchscreen V3"
+	default n
+	help
+	  Say Y here if you have Focaltech V3 touch panel.
+	  If unsure, say N.
 
-config TOUCHSCREEN_FTS_DIRECTORY_V3
-    string "Focaltech ts v3 directory name"
-    default "focaltech_touch_v3"
-    depends on TOUCHSCREEN_FTS_V3
+config TOUCHSCREEN_FTS_V3_ENABLE_DOUBLE_TAP
+	bool "Enable double tap"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable double tap functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config TOUCHSCREEN_FTS_V3_ENABLE_PALM
+	bool "Enable palm sensing"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable palm sensing functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_NOISE_TEST_P2P
+	bool "Enable P2P noise test"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable P2P noise test functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_COMPATIBLE_WITH_GKI
+	bool "Enable GKI compatibility"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable GKI compatibility on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_DOUBLE_TAP_CONTROL
+	bool "Enable double tap control"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable double tap control functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_SUPPORT_HIGH_RESOLUTION
+	bool "Enable high resolution"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable high resolution functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_VDD_GPIO_CONTROL
+	bool "Enable VDD GPIO control"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable VDD GPIO control functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_LAST_TIME
+	bool "Enable last time"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable last time functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
+
+config FTS_INPUT_ID
+	bool "Enable input ID"
+	depends on TOUCHSCREEN_FTS_V3
+	default n
+	help
+	  Say Y here to enable input ID functionality on Focaltech V3 touch panel.
+	  If unsure, say N.
