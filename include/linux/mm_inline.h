@@ -146,9 +146,11 @@ static __always_inline enum lru_list page_lru(struct page *page)
 
 #ifdef CONFIG_LRU_GEN
 
+extern bool lru_gen_runtime_enabled;
+
 static inline bool lru_gen_enabled(void)
 {
-	return true;
+	return lru_gen_runtime_enabled;
 }
 
 static inline bool lru_gen_in_fault(void)
@@ -262,7 +264,7 @@ static inline bool lru_gen_add_page(struct lruvec *lruvec, struct page *page, bo
 
 	VM_WARN_ON_ONCE_PAGE(gen != -1, page);
 
-	if (PageUnevictable(page))
+	if (!lru_gen_enabled() || PageUnevictable(page))
 		return false;
 	/*
 	 * There are three common cases for this page:

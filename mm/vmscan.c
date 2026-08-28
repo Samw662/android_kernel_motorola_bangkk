@@ -4710,6 +4710,9 @@ void lru_gen_exit_memcg(struct mem_cgroup *memcg)
 }
 #endif
 
+bool lru_gen_runtime_enabled = true;
+core_param(lru_gen_enabled, lru_gen_runtime_enabled, bool, 0644);
+
 static int __init init_lru_gen(void)
 {
 	BUILD_BUG_ON(MIN_NR_GENS + 1 >= MAX_NR_GENS);
