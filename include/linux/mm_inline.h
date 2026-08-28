@@ -298,7 +298,7 @@ static inline bool lru_gen_add_page(struct lruvec *lruvec, struct page *page, bo
 	if (reclaiming)
 		return false;
 
-	page->flags = flags;
+	set_mask_bits(&page->flags, LRU_GEN_MASK | BIT(PG_active), flags);
 	lru_gen_update_size(lruvec, page, -1, gen);
 	return true;
 }
