@@ -457,6 +457,8 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 #define pmd_sect(pmd)		((pmd_val(pmd) & PMD_TYPE_MASK) == \
 				 PMD_TYPE_SECT)
 
+#define pmd_leaf(pmd)		(pmd_present(pmd) && !pmd_table(pmd))
+
 #if defined(CONFIG_ARM64_64K_PAGES) || CONFIG_PGTABLE_LEVELS < 3
 static inline bool pud_sect(pud_t pud) { return false; }
 static inline bool pud_table(pud_t pud) { return true; }
@@ -466,6 +468,10 @@ static inline bool pud_table(pud_t pud) { return true; }
 #define pud_table(pud)		((pud_val(pud) & PUD_TYPE_MASK) == \
 				 PUD_TYPE_TABLE)
 #endif
+
+#define pud_leaf(pud)		(pud_present(pud) && !pud_table(pud))
+#define p4d_leaf(p4d)		false
+#define arch_has_hw_pte_young	cpu_has_hw_af
 
 extern pgd_t init_pg_dir[PTRS_PER_PGD];
 extern pgd_t init_pg_end[];

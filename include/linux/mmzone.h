@@ -374,6 +374,8 @@ void lru_gen_refault(struct page *page, void *shadow);
 
 #ifdef CONFIG_LRU_GEN
 
+#define ANON_AND_FILE	2
+
 enum {
 	LRU_GEN_ANON,
 	LRU_GEN_FILE,
