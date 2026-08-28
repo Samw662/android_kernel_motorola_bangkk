@@ -284,45 +284,38 @@ static inline bool lru_gen_add_page(struct lruvec *lruvec, struct page *page, bo
 
 	gen = lru_gen_from_seq(seq);
 	flags = (gen + 1UL) << LRU_GEN_PGOFF;
-	/* see the comment on MIN_NR_GENS */
-	if (gen == lru_gen_from_seq(lrugen->min_seq[type]))
-		__set_bit(PG_active, &flags);
-	else if (gen == lru_gen_from_seq(lrugen->min_seq[type] + 1))
-		__clear_bit(PG_active, &flags);
-	else {
-		VM_WARN_ON_ONCE_PAGE(gen != lru_gen_from_seq(lrugen->max_seq), page);
-		__clear_bit(PG_active, &flags);
-	}
-
-	/* don't update max_seq if the page is about to be reclaimed */
-	if (reclaiming)
-		return false;
-
+	/* see the comment on MIN_NR_GENS about PG_active */
 	set_mask_bits(&page->flags, LRU_GEN_MASK | BIT(PG_active), flags);
+
 	lru_gen_update_size(lruvec, page, -1, gen);
+	/* for rotate_reclaimable_page() */
+	if (reclaiming)
+		list_add_tail(&page->lru, &lrugen->lists[gen][type][zone]);
+	else
+		list_add(&page->lru, &lrugen->lists[gen][type][zone]);
+
 	return true;
 }
 
 static inline bool lru_gen_del_page(struct lruvec *lruvec, struct page *page, bool reclaiming)
 {
+	unsigned long flags;
 	int gen = page_lru_gen(page);
-	struct lru_gen_struct *lrugen = &lruvec->lrugen;
 
 	if (gen < 0)
 		return false;
 
-	VM_WARN_ON_ONCE_PAGE(gen >= MAX_NR_GENS, page);
-	if (reclaiming)
-		WRITE_ONCE(lrugen->nr_pages[gen][page_is_file_cache(page)][page_zonenum(page)],
-			   lrugen->nr_pages[gen][page_is_file_cache(page)][page_zonenum(page)] -
-			   hpage_nr_pages(page));
-	else {
-		lru_gen_update_size(lruvec, page, gen, -1);
-		ClearPageActive(page);
-		ClearPageReferenced(page);
-	}
+	VM_WARN_ON_ONCE_PAGE(PageActive(page), page);
+	VM_WARN_ON_ONCE_PAGE(PageUnevictable(page), page);
 
-	page->flags &= ~LRU_GEN_MASK;
+	/* for migrate_page_states() */
+	flags = !reclaiming && lru_gen_is_active(lruvec, gen) ? BIT(PG_active) : 0;
+	flags = set_mask_bits(&page->flags, LRU_GEN_MASK, flags);
+	gen = ((flags & LRU_GEN_MASK) >> LRU_GEN_PGOFF) - 1;
+
+	lru_gen_update_size(lruvec, page, gen, -1);
+	list_del(&page->lru);
+
 	return true;
 }
 
