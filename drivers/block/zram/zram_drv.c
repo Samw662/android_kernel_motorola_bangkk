@@ -1091,6 +1091,48 @@ static ssize_t mm_stat_show(struct device *dev,
 	return ret;
 }
 
+static ssize_t mem_used_total_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zram *zram = dev_to_zram(dev);
+	ssize_t ret;
+
+	down_read(&zram->init_lock);
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n",
+			(u64)zs_get_total_pages(zram->mem_pool) << PAGE_SHIFT);
+	up_read(&zram->init_lock);
+
+	return ret;
+}
+
+static ssize_t orig_data_size_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zram *zram = dev_to_zram(dev);
+	ssize_t ret;
+
+	down_read(&zram->init_lock);
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n",
+			(u64)atomic64_read(&zram->stats.pages_stored) << PAGE_SHIFT);
+	up_read(&zram->init_lock);
+
+	return ret;
+}
+
+static ssize_t compr_data_size_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zram *zram = dev_to_zram(dev);
+	ssize_t ret;
+
+	down_read(&zram->init_lock);
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n",
+			(u64)atomic64_read(&zram->stats.compr_data_size));
+	up_read(&zram->init_lock);
+
+	return ret;
+}
+
 #ifdef CONFIG_ZRAM_WRITEBACK
 #define FOUR_K(x) ((x) * (1 << (PAGE_SHIFT - 12)))
 static ssize_t bd_stat_show(struct device *dev,
@@ -1130,6 +1172,9 @@ static ssize_t debug_stat_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(io_stat);
+static DEVICE_ATTR_RO(mem_used_total);
+static DEVICE_ATTR_RO(orig_data_size);
+static DEVICE_ATTR_RO(compr_data_size);
 static DEVICE_ATTR_RO(mm_stat);
 #ifdef CONFIG_ZRAM_WRITEBACK
 static DEVICE_ATTR_RO(bd_stat);
@@ -1890,6 +1935,9 @@ static struct attribute *zram_disk_attrs[] = {
 	&dev_attr_writeback_limit_enable.attr,
 #endif
 	&dev_attr_io_stat.attr,
+	&dev_attr_mem_used_total.attr,
+	&dev_attr_orig_data_size.attr,
+	&dev_attr_compr_data_size.attr,
 	&dev_attr_mm_stat.attr,
 #ifdef CONFIG_ZRAM_WRITEBACK
 	&dev_attr_bd_stat.attr,
