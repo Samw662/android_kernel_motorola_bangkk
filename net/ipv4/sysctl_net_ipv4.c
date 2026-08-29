@@ -240,9 +240,13 @@ static int proc_tcp_congestion_control(struct ctl_table *ctl, int write,
 
 	tcp_get_default_congestion_control(net, val);
 
+	if (write) {
+		pr_info("tcp: congestion control locked to %s, ignoring change\n",
+			val);
+		return *lenp;
+	}
+
 	ret = proc_dostring(&tbl, write, buffer, lenp, ppos);
-	if (write && ret == 0)
-		ret = tcp_set_default_congestion_control(net, val);
 	return ret;
 }
 
